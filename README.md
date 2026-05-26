@@ -1,18 +1,52 @@
 # FocusGuard
-A free Android app usage time management tool.
 
-## ✨ Features
-- 📊 Track daily app usage time
-- ⏱️ Set usage limits for specific apps
-- 📈 Visual usage reports and statistics
-- 🔔 Reminders when approaching usage limits
+FocusGuard 是一款免费的 Android 应用使用时间管理工具，目标是帮助用户统计应用使用时长，并为多个应用设置每日使用限制。
 
-## 🛠️ Tech Stack
-- Language: Kotlin/Java
-- Framework: Android SDK
+## 项目背景
 
-## 📦 Installation
-*To be updated as development progresses*
+我在使用同类应用时发现，部分应用免费版只能限制少量 App，更多限制需要开通会员。因此我希望开发一个支持多应用限制的免费工具，同时通过这个项目提升 Android 开发、系统权限使用、数据持久化和项目工程能力。
 
-## 📄 License
-MIT License
+## 核心功能规划
+
+- 查看手机已安装应用列表
+- 为多个应用设置每日使用时长限制
+- 统计应用今日使用时间
+- 超过限制后进行提醒或拦截
+- 提供专注模式
+- 展示每日/每周使用统计
+
+## 技术栈
+
+- 开发语言：Java
+- UI：XML Layout
+- 平台：Android SDK
+- 数据存储：SQLite / Room
+- 系统能力：
+    - UsageStatsManager
+    - AccessibilityService
+- 版本管理：Git + GitHub
+
+## 当前进度
+
+- [x] 创建 Android 项目
+- [x] 初始化 Git 仓库
+- [x] 上传项目到 GitHub
+- [ ] 完成首页布局
+- [ ] 获取已安装应用列表
+- [ ] 设置应用使用限制
+- [ ] 统计应用使用时长
+- [ ] 实现超时提醒
+
+## 开发计划
+
+### v1.0 本地版
+
+完成多应用限制和本地使用时间统计，不依赖后端服务。
+
+### v2.0 云同步版
+
+计划接入 Spring Boot + MySQL，实现账号登录、规则同步和历史记录同步。
+
+## 项目意义
+
+通过 FocusGuard 项目，我希望系统练习 Android 原生开发、系统权限申请、前后台状态监听、本地数据存储和 GitHub 项目维护流程，并将其作为后续实习求职的项目经历。
