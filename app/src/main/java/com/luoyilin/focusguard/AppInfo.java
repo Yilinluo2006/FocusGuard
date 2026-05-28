@@ -6,13 +6,15 @@ public class AppInfo {
     private String appName;
     private String packageName;
     private Drawable appIcon;
-    // 保存应用图标
+    private boolean selected;
+    // 保存当前应用是否被选中
 
     public AppInfo(String appName, String packageName, Drawable appIcon) {
         this.appName = appName;
         this.packageName = packageName;
         this.appIcon = appIcon;
-        // 创建应用信息对象时，同时保存名称、包名和图标
+        this.selected = false;
+        // 默认新应用未被选中
     }
 
     public String getAppName() {
@@ -28,5 +30,15 @@ public class AppInfo {
     public Drawable getAppIcon() {
         return appIcon;
         // 返回应用图标
+    }
+
+    public boolean isSelected() {
+        return selected;
+        // 返回当前应用是否被选中
+    }
+
+    public void setSelected(boolean selected) {
+        this.selected = selected;
+        // 修改当前应用的选中状态
     }
 }

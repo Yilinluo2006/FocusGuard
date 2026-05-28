@@ -19,6 +19,9 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 // 引入 Drawable 类型，用来保存应用图标
 
+import android.widget.TextView;
+// 引入 TextView 控件，用来显示已选择数量
+
 public class AppManageActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +40,14 @@ public class AppManageActivity extends AppCompatActivity {
 
         AppListAdapter adapter = new AppListAdapter(appList);
         // 创建适配器，把应用数据交给 RecyclerView 使用
+
+        TextView tvSelectedCount = findViewById(R.id.tvSelectedCount);
+// 找到显示已选择数量的 TextView
+
+        adapter.setOnSelectionChangedListener(selectedCount ->
+                tvSelectedCount.setText("已选择 " + selectedCount + " 个应用")
+        );
+// 当选择数量变化时，更新页面上的文字
 
         rvAppList.setLayoutManager(new LinearLayoutManager(this));
         // 设置 RecyclerView 使用竖向列表布局
