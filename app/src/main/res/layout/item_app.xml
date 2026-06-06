@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 应用列表中的单个应用项 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="76dp"
+    android:layout_height="92dp"
     android:background="#FFFFFF"
     android:gravity="center_vertical"
     android:orientation="horizontal"
@@ -35,9 +36,18 @@
             android:id="@+id/tvPackageName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="3dp"
             android:text="com.example.app"
             android:textColor="#6B7280"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvLimitTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="未限制"
+            android:textColor="#2563EB"
             android:textSize="13sp" />
 
     </LinearLayout>

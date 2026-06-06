@@ -1,141 +1,214 @@
-//接收 List<AppInfo>
-//加载 item_app.xml 作为每一行布局
-//把应用图标、名称、包名显示到每一行
-//处理 Switch 开关点击
-//统计已选择应用数量
-//通过回调通知 AppManageActivity
-
 package com.luoyilin.focusguard;
 
+import android.app.AlertDialog;
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
-public class AppListAdapter extends RecyclerView.Adapter<AppListAdapter.AppViewHolder> {
-    private List<AppInfo> appList;
+public class AppListAdapter
+        extends RecyclerView.Adapter<AppListAdapter.AppViewHolder> {
+
+    private final List<AppInfo> appList;
     private OnSelectionChangedListener selectionChangedListener;
-    // 保存选择状态变化的监听器，用来通知 Activity 更新数量
+    // 保存应用列表和状态变化监听器
 
     public interface OnSelectionChangedListener {
         void onSelectionChanged(int selectedCount);
-        // 当已选择应用数量变化时调用
+        // 应用状态变化时通知 Activity
     }
 
     public AppListAdapter(List<AppInfo> appList) {
         this.appList = appList;
-        // 创建适配器时接收外部传入的应用列表
+        // 接收需要显示的应用列表
     }
 
-    public void setOnSelectionChangedListener(OnSelectionChangedListener listener) {
+    public void setOnSelectionChangedListener(
+            OnSelectionChangedListener listener
+    ) {
         this.selectionChangedListener = listener;
-        // 设置选择状态变化监听器
+        // 设置状态变化监听器
     }
 
     @NonNull
     @Override
-    public AppViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public AppViewHolder onCreateViewHolder(
+            @NonNull ViewGroup parent,
+            int viewType
+    ) {
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_app, parent, false);
-        // 加载 item_app.xml，创建一行应用列表界面
+        // 加载单个应用的列表项布局
 
         return new AppViewHolder(view);
-        // 创建 ViewHolder，用来保存这一行里的控件
+        // 创建并返回 ViewHolder
     }
 
     @Override
-    public void onBindViewHolder(@NonNull AppViewHolder holder, int position) {
+    public void onBindViewHolder(
+            @NonNull AppViewHolder holder,
+            int position
+    ) {
         AppInfo appInfo = appList.get(position);
-        // 根据当前位置获取对应的应用数据
+        // 获取当前位置对应的应用数据
 
         holder.ivAppIcon.setImageDrawable(appInfo.getAppIcon());
-        // 把应用图标显示到 ImageView 上
-
         holder.tvAppName.setText(appInfo.getAppName());
-        // 把应用名称显示到 TextView 上
-
         holder.tvPackageName.setText(appInfo.getPackageName());
-        // 把应用包名显示到 TextView 上
-
+        holder.tvLimitTime.setText(appInfo.getLimitText());
         holder.swSelected.setChecked(appInfo.isSelected());
-        // 根据 AppInfo 的 selected 状态设置 Switch 是否开启
+        // 将应用数据绑定到列表控件
 
         holder.itemView.setOnClickListener(v -> {
-            appInfo.setSelected(!appInfo.isSelected());
-            // 点击整行时，切换当前应用是否被选中
+            int currentPosition = holder.getAdapterPosition();
+            // 获取用户点击时最新的列表位置
 
-            notifyItemChanged(position);
-            // 通知 RecyclerView 刷新当前这一行
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+            // 如果列表位置已经失效，就停止处理
+
+            AppInfo currentApp = appList.get(currentPosition);
+            currentApp.setSelected(!currentApp.isSelected());
+            // 切换当前应用的选择状态
+
+            notifyItemChanged(currentPosition);
+            // 刷新当前这一行
 
             notifySelectionChanged();
-            // 通知 Activity 已选择数量发生变化
+            // 通知 Activity 更新数量并保存
         });
 
         holder.swSelected.setOnClickListener(v -> {
-            appInfo.setSelected(holder.swSelected.isChecked());
-            // 点击 Switch 时，把开关状态同步到 AppInfo 数据里
+            int currentPosition = holder.getAdapterPosition();
+            // 获取开关对应的最新列表位置
 
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            AppInfo currentApp = appList.get(currentPosition);
+            currentApp.setSelected(holder.swSelected.isChecked());
+            // 将开关状态同步到应用数据
+
+            notifyItemChanged(currentPosition);
             notifySelectionChanged();
-            // 通知 Activity 已选择数量发生变化
+            // 刷新界面并通知 Activity
         });
+
+        holder.tvLimitTime.setOnClickListener(v -> {
+            int currentPosition = holder.getAdapterPosition();
+            // 获取当前应用最新的列表位置
+
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            AppInfo currentApp = appList.get(currentPosition);
+
+            if (!currentApp.isSelected()) {
+                Toast.makeText(
+                        v.getContext(),
+                        "请先开启该应用的限制",
+                        Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+            // 未开启限制时，不允许设置时间
+
+            showLimitTimeDialog(
+                    v.getContext(),
+                    currentApp,
+                    currentPosition
+            );
+            // 显示限制时间选择弹窗
+        });
+    }
+
+    private void showLimitTimeDialog(
+            Context context,
+            AppInfo appInfo,
+            int position
+    ) {
+        String[] timeOptions = {
+                "15 分钟",
+                "30 分钟",
+                "60 分钟",
+                "120 分钟"
+        };
+        // 弹窗显示的时间选项
+
+        int[] timeValues = {15, 30, 60, 120};
+        // 每个选项对应的分钟数
+
+        new AlertDialog.Builder(context)
+                .setTitle("设置 " + appInfo.getAppName() + " 的每日限制")
+                .setItems(timeOptions, (dialog, which) -> {
+                    appInfo.setLimitMinutes(timeValues[which]);
+                    // 保存用户选择的分钟数
+
+                    notifyItemChanged(position);
+                    // 更新当前列表项
+
+                    notifySelectionChanged();
+                    // 通知 Activity 保存最新状态
+                })
+                .setNegativeButton("取消", null)
+                .show();
+        // 创建并显示时间选择弹窗
     }
 
     @Override
     public int getItemCount() {
         return appList.size();
-        // 返回应用列表数量，决定 RecyclerView 显示多少行
+        // 返回应用总数
     }
 
     private int getSelectedCount() {
         int count = 0;
-        // 创建计数器，用来统计已选择应用数量
 
         for (AppInfo appInfo : appList) {
             if (appInfo.isSelected()) {
                 count++;
             }
         }
-        // 遍历应用列表，统计 selected 为 true 的应用数量
+        // 统计已选择的应用数量
 
         return count;
-        // 返回最终统计结果
     }
 
     private void notifySelectionChanged() {
         if (selectionChangedListener != null) {
             selectionChangedListener.onSelectionChanged(getSelectedCount());
         }
-        // 如果 Activity 设置了监听器，就把最新选择数量通知出去
+        // 通知 Activity 当前已选择数量
     }
 
     static class AppViewHolder extends RecyclerView.ViewHolder {
         ImageView ivAppIcon;
         TextView tvAppName;
         TextView tvPackageName;
+        TextView tvLimitTime;
         Switch swSelected;
-        // 保存一行中的图标、文字和开关控件
 
         public AppViewHolder(@NonNull View itemView) {
             super(itemView);
 
             ivAppIcon = itemView.findViewById(R.id.ivAppIcon);
-            // 找到列表项里的应用图标控件
-
             tvAppName = itemView.findViewById(R.id.tvAppName);
-            // 找到列表项里的应用名称控件
-
             tvPackageName = itemView.findViewById(R.id.tvPackageName);
-            // 找到列表项里的应用包名控件
-
+            tvLimitTime = itemView.findViewById(R.id.tvLimitTime);
             swSelected = itemView.findViewById(R.id.swSelected);
-            // 找到列表项里的 Switch 开关控件
+            // 找到单个列表项中的所有控件
         }
     }
 }

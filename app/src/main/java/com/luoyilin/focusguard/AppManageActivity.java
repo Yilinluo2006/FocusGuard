@@ -1,9 +1,14 @@
 package com.luoyilin.focusguard;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,18 +16,23 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-
-import android.content.Intent;
-import android.content.pm.ResolveInfo;
-
-import android.graphics.drawable.Drawable;
-// 引入 Drawable 类型，用来保存应用图标
-
-import android.widget.TextView;
-// 引入 TextView 控件，用来显示已选择数量
+import java.util.Set;
 
 public class AppManageActivity extends AppCompatActivity {
+    private static final String PREF_NAME = "focus_guard_prefs";
+    // SharedPreferences 文件名，用来保存本地配置
+
+    private static final String KEY_SELECTED_PACKAGES = "selected_packages";
+    // 保存已选择应用包名集合的 key
+
+    private static final String KEY_LIMIT_PREFIX = "limit_minutes_";
+    // 保存每个应用限制分钟数时使用的 key 前缀
+
+    private static final int DEFAULT_LIMIT_MINUTES = 30;
+    // 默认限制时间：30 分钟
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,76 +40,169 @@ public class AppManageActivity extends AppCompatActivity {
         // 加载应用管理页面布局
 
         Button btnAddLimitedApp = findViewById(R.id.btnAddLimitedApp);
-        // 找到“添加限制应用”按钮
-
-        RecyclerView rvAppList = findViewById(R.id.rvAppList);
-        // 找到用于显示应用列表的 RecyclerView
-
-        List<AppInfo> appList = loadInstalledApps();
-        // 从手机中读取真实已安装应用列表
-
-        AppListAdapter adapter = new AppListAdapter(appList);
-        // 创建适配器，把应用数据交给 RecyclerView 使用
+        // 找到保存按钮
 
         TextView tvSelectedCount = findViewById(R.id.tvSelectedCount);
-// 找到显示已选择数量的 TextView
+        // 找到显示已选择数量的 TextView
 
-        adapter.setOnSelectionChangedListener(selectedCount ->
-                tvSelectedCount.setText("已选择 " + selectedCount + " 个应用")
-        );
-// 当选择数量变化时，更新页面上的文字
+        RecyclerView rvAppList = findViewById(R.id.rvAppList);
+        // 找到应用列表 RecyclerView
+
+        List<AppInfo> appList = loadInstalledApps();
+        // 读取手机应用，并恢复已保存的选择状态和限制时间
+
+        tvSelectedCount.setText("已选择 " + countSelectedApps(appList) + " 个应用");
+        // 页面打开时显示当前已选择数量
+
+        AppListAdapter adapter = new AppListAdapter(appList);
+        // 创建适配器
+
+        adapter.setOnSelectionChangedListener(selectedCount -> {
+            tvSelectedCount.setText("已选择 " + selectedCount + " 个应用");
+            // 更新顶部已选择数量
+
+            saveSelectedApps(appList);
+            // 每次选择或限制时间变化后，保存最新状态
+        });
 
         rvAppList.setLayoutManager(new LinearLayoutManager(this));
-        // 设置 RecyclerView 使用竖向列表布局
+        // 设置 RecyclerView 为竖向列表
 
         rvAppList.setAdapter(adapter);
-        // 绑定适配器，让 RecyclerView 显示应用列表
+        // 绑定适配器，让列表显示出来
 
-        btnAddLimitedApp.setOnClickListener(v ->
-                Toast.makeText(this, "已读取手机应用列表", Toast.LENGTH_SHORT).show()
-        );
-        // 点击按钮时弹出提示，后续这里会改成添加筛选或选择逻辑
+        btnAddLimitedApp.setOnClickListener(v -> {
+            saveSelectedApps(appList);
+            // 手动保存当前选择和限制时间
+
+            Toast.makeText(this, "已保存 " + countSelectedApps(appList) + " 个限制应用", Toast.LENGTH_SHORT).show();
+            // 显示保存提示
+        });
     }
 
     private List<AppInfo> loadInstalledApps() {
         List<AppInfo> appList = new ArrayList<>();
-        // 创建一个空列表，用来保存最终要显示的应用
+        // 创建应用列表
+
+        Set<String> selectedPackageNames = getSavedSelectedPackageNames();
+        // 读取之前保存过的已选择应用包名
 
         PackageManager packageManager = getPackageManager();
-        // 获取系统包管理器，用来读取应用信息
+        // 获取系统包管理器
 
         Intent intent = new Intent(Intent.ACTION_MAIN, null);
-        // 创建一个用于查找“可启动应用”的 Intent
+        // 创建查询可启动应用的 Intent
 
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
-        // 只查找会出现在桌面启动器里的应用
+        // 只查询桌面启动器中的应用
 
         List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
-        // 查询手机中所有可以从桌面启动的应用
+        // 查询所有可从桌面启动的应用
 
         for (ResolveInfo resolveInfo : resolveInfoList) {
             ApplicationInfo applicationInfo = resolveInfo.activityInfo.applicationInfo;
-            // 获取当前应用的 ApplicationInfo 信息
+            // 获取应用信息
 
             if ((applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
                 continue;
             }
-            // 如果是系统应用，就跳过，不加入列表
+            // 跳过系统应用
 
             String appName = packageManager.getApplicationLabel(applicationInfo).toString();
-            // 获取应用名称，比如“微信”
+            // 获取应用名称
 
             String packageName = applicationInfo.packageName;
-            // 获取应用包名，比如 com.tencent.mm
+            // 获取应用包名
 
             Drawable appIcon = packageManager.getApplicationIcon(applicationInfo);
-// 获取应用图标
+            // 获取应用图标
 
-            appList.add(new AppInfo(appName, packageName, appIcon));
-// 把应用名称、包名和图标保存到列表里
-       }
+            AppInfo appInfo = new AppInfo(appName, packageName, appIcon);
+            // 创建 AppInfo 对象
+
+            boolean isSelected = selectedPackageNames.contains(packageName);
+            // 判断这个应用之前是否被选中过
+
+            appInfo.setSelected(isSelected);
+            // 恢复选中状态
+
+            if (isSelected) {
+                appInfo.setLimitMinutes(getSavedLimitMinutes(packageName));
+            }
+            // 如果之前被选中过，就恢复它保存的限制分钟数
+
+            appList.add(appInfo);
+            // 加入列表
+        }
 
         return appList;
-        // 返回过滤后的用户应用列表
+        // 返回最终应用列表
+    }
+
+    private Set<String> getSavedSelectedPackageNames() {
+        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        // 获取 SharedPreferences
+
+        Set<String> savedSet = preferences.getStringSet(KEY_SELECTED_PACKAGES, new HashSet<>());
+        // 读取已保存的包名集合
+
+        return new HashSet<>(savedSet);
+        // 返回一个新的 HashSet，避免直接修改 SharedPreferences 内部集合
+    }
+
+    private int getSavedLimitMinutes(String packageName) {
+        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        // 获取 SharedPreferences
+
+        return preferences.getInt(KEY_LIMIT_PREFIX + packageName, DEFAULT_LIMIT_MINUTES);
+        // 根据包名读取限制分钟数，如果没有保存过就返回默认 30 分钟
+    }
+
+    private void saveSelectedApps(List<AppInfo> appList) {
+        Set<String> selectedPackageNames = new HashSet<>();
+        // 保存当前选中的应用包名
+
+        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        // 获取 SharedPreferences
+
+        SharedPreferences.Editor editor = preferences.edit();
+        // 创建编辑器，用来写入数据
+
+        for (AppInfo appInfo : appList) {
+            String packageName = appInfo.getPackageName();
+            // 获取当前应用包名
+
+            if (appInfo.isSelected()) {
+                selectedPackageNames.add(packageName);
+                // 如果应用被选中，就保存它的包名
+
+                editor.putInt(KEY_LIMIT_PREFIX + packageName, appInfo.getLimitMinutes());
+                // 保存这个应用对应的限制分钟数
+            } else {
+                editor.remove(KEY_LIMIT_PREFIX + packageName);
+                // 如果应用未选中，就删除它之前保存的限制分钟数
+            }
+        }
+
+        editor.putStringSet(KEY_SELECTED_PACKAGES, selectedPackageNames);
+        // 保存所有已选择应用的包名集合
+
+        editor.apply();
+        // 异步提交保存
+    }
+
+    private int countSelectedApps(List<AppInfo> appList) {
+        int count = 0;
+        // 计数器
+
+        for (AppInfo appInfo : appList) {
+            if (appInfo.isSelected()) {
+                count++;
+            }
+        }
+        // 统计 selected 为 true 的应用数量
+
+        return count;
+        // 返回已选择数量
     }
 }
