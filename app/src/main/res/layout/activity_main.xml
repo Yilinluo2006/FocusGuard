@@ -41,7 +41,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="今日总使用时长"
+                android:text="受限应用今日使用时长"
                 android:textColor="#6B7280"
                 android:textSize="14sp" />
 

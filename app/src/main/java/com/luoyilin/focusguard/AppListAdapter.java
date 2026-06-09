@@ -13,6 +13,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class AppListAdapter
@@ -29,7 +31,8 @@ public class AppListAdapter
 
     public AppListAdapter(List<AppInfo> appList) {
         this.appList = appList;
-        // 接收需要显示的应用列表
+        sortAppList();
+        // 创建适配器时，先按选中状态和今日使用时长排序
     }
 
     public void setOnSelectionChangedListener(
@@ -64,7 +67,7 @@ public class AppListAdapter
         holder.ivAppIcon.setImageDrawable(appInfo.getAppIcon());
         holder.tvAppName.setText(appInfo.getAppName());
         holder.tvPackageName.setText(appInfo.getPackageName());
-        holder.tvLimitTime.setText(appInfo.getLimitText());
+        holder.tvLimitTime.setText(appInfo.getUsageAndLimitText());
         holder.swSelected.setChecked(appInfo.isSelected());
         // 将应用数据绑定到列表控件
 
@@ -75,14 +78,17 @@ public class AppListAdapter
             if (currentPosition == RecyclerView.NO_POSITION) {
                 return;
             }
-            // 如果列表位置已经失效，就停止处理
+            // 如果列表位置失效，就停止处理
 
             AppInfo currentApp = appList.get(currentPosition);
             currentApp.setSelected(!currentApp.isSelected());
             // 切换当前应用的选择状态
 
-            notifyItemChanged(currentPosition);
-            // 刷新当前这一行
+            sortAppList();
+            // 重新排序：已选应用置顶，并按今日使用时长降序排列
+
+            notifyDataSetChanged();
+            // 刷新整个列表，因为排序后应用位置可能变化
 
             notifySelectionChanged();
             // 通知 Activity 更新数量并保存
@@ -98,11 +104,16 @@ public class AppListAdapter
 
             AppInfo currentApp = appList.get(currentPosition);
             currentApp.setSelected(holder.swSelected.isChecked());
-            // 将开关状态同步到应用数据
+            // 将 Switch 状态同步到应用数据
 
-            notifyItemChanged(currentPosition);
+            sortAppList();
+            // 重新排序列表
+
+            notifyDataSetChanged();
+            // 刷新整个列表
+
             notifySelectionChanged();
-            // 刷新界面并通知 Activity
+            // 通知 Activity 更新数量并保存
         });
 
         holder.tvLimitTime.setOnClickListener(v -> {
@@ -131,6 +142,29 @@ public class AppListAdapter
                     currentPosition
             );
             // 显示限制时间选择弹窗
+        });
+    }
+
+    private void sortAppList() {
+        Collections.sort(appList, new Comparator<AppInfo>() {
+            @Override
+            public int compare(AppInfo firstApp, AppInfo secondApp) {
+                if (firstApp.isSelected() && !secondApp.isSelected()) {
+                    return -1;
+                }
+                // 已选中的应用排在未选中的应用前面
+
+                if (!firstApp.isSelected() && secondApp.isSelected()) {
+                    return 1;
+                }
+                // 未选中的应用排在已选中的应用后面
+
+                return Long.compare(
+                        secondApp.getTodayUsageMillis(),
+                        firstApp.getTodayUsageMillis()
+                );
+                // 同一组内按今日使用时长从大到小排序
+            }
         });
     }
 
