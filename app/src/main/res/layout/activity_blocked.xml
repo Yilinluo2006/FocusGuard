@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 超时阻断页面 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/blockedPage"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F6F8FA"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="28dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="已限制使用"
+        android:textColor="#111827"
+        android:textSize="30sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvBlockedMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:gravity="center"
+        android:lineSpacingExtra="6dp"
+        android:text="该应用今日使用时间已达到限制"
+        android:textColor="#4B5563"
+        android:textSize="17sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:gravity="center"
+        android:lineSpacingExtra="6dp"
+        android:text="FocusGuard 会在明天重新开放今日额度。"
+        android:textColor="#6B7280"
+        android:textSize="15sp" />
+
+</LinearLayout>

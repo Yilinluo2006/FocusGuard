@@ -5,7 +5,7 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
-    
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -28,12 +28,34 @@
             android:exported="false" />
 
         <activity
+            android:name=".BlockedActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".FocusAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <!-- 注册无障碍服务，只有系统可以绑定并启动它 -->
+
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <!-- 告诉系统：这是一个 AccessibilityService -->
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+            <!-- 绑定刚刚创建的无障碍服务配置文件 -->
+        </service>
+
+        <activity
             android:name=".PermissionGuideActivity"
             android:exported="false" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

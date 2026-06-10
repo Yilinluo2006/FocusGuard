@@ -38,6 +38,19 @@ public class PermissionGuideActivity extends AppCompatActivity {
             startActivity(intent);
             // 跳转到系统设置
         });
+
+        Button btnOpenAccessibilitySettings =
+                findViewById(R.id.btnOpenAccessibilitySettings);
+// 找到打开无障碍设置的按钮
+
+        btnOpenAccessibilitySettings.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            // 创建打开无障碍设置页的 Intent
+
+            startActivity(intent);
+            // 跳转到系统无障碍设置，让用户手动开启 FocusGuard 服务
+        });
+
     }
 
     @Override

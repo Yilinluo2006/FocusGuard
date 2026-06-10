@@ -54,5 +54,14 @@
         android:text="前往系统设置"
         android:textColor="#FFFFFF"
         android:textSize="16sp" />
+    <Button
+        android:id="@+id/btnOpenAccessibilitySettings"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="#111827"
+        android:text="前往无障碍设置"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
 
 </LinearLayout>
