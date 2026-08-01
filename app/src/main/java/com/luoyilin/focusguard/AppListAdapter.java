@@ -32,7 +32,7 @@ public class AppListAdapter
     public AppListAdapter(List<AppInfo> appList) {
         this.appList = appList;
         sortAppList();
-        // 创建适配器时，先按选中状态和今日使用时长排序
+//         创建适配器时，先按选中状态和今日使用时长排序
     }
 
     public void setOnSelectionChangedListener(
@@ -166,6 +166,16 @@ public class AppListAdapter
                 // 同一组内按今日使用时长从大到小排序
             }
         });
+    }
+    public void refreshAppList() {
+        sortAppList();
+        // 根据“已限制优先、使用时间降序”的规则重新排序
+
+        notifyDataSetChanged();
+        // 通知 RecyclerView 重新显示全部列表项
+
+        notifySelectionChanged();
+        // 通知 Activity 更新“已选择几个应用”并保存最新状态
     }
 
     private void showLimitTimeDialog(

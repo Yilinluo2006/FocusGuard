@@ -26,6 +26,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.luoyilin.focusguard.network.AppLimitResponse;
+import com.luoyilin.focusguard.network.RetrofitClient;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class AppManageActivity extends AppCompatActivity {
     private static final String PREF_NAME = "focus_guard_prefs";
     // SharedPreferences 文件名，用来保存本地配置
@@ -77,6 +84,9 @@ public class AppManageActivity extends AppCompatActivity {
         rvAppList.setAdapter(adapter);
         // 绑定适配器，让列表显示出来
 
+        loadLimitsFromServer(appList, adapter);
+// 从后端读取限制记录，并更新当前应用列表
+
         btnAddLimitedApp.setOnClickListener(v -> {
             saveSelectedApps(appList);
             // 手动保存当前选择和限制时间
@@ -84,6 +94,81 @@ public class AppManageActivity extends AppCompatActivity {
             Toast.makeText(this, "已保存 " + countSelectedApps(appList) + " 个限制应用", Toast.LENGTH_SHORT).show();
             // 显示保存提示
         });
+    }
+
+    private void loadLimitsFromServer(
+            List<AppInfo> appList,
+            AppListAdapter adapter
+    ) {
+        RetrofitClient.getApi().getAppLimits()
+                .enqueue(new Callback<List<AppLimitResponse>>() {
+
+                    @Override
+                    public void onResponse(
+                            Call<List<AppLimitResponse>> call,
+                            Response<List<AppLimitResponse>> response
+                    ) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            Toast.makeText(
+                                    AppManageActivity.this,
+                                    "读取后端限制失败：" + response.code(),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+                        // 检查后端是否正常返回数据
+
+                        Map<String, AppLimitResponse> limitMap = new HashMap<>();
+
+                        for (AppLimitResponse limit : response.body()) {
+                            limitMap.put(limit.getPackageName(), limit);
+                        }
+                        // 用应用包名作为 key，方便快速查找对应的后端记录
+
+                        int matchedCount = 0;
+
+                        for (AppInfo appInfo : appList) {
+                            AppLimitResponse limit =
+                                    limitMap.get(appInfo.getPackageName());
+
+                            if (limit == null) {
+                                continue;
+                            }
+                            // 后端没有这个应用的记录，就保留原来的本地状态
+
+                            appInfo.setSelected(limit.isEnabled());
+
+                            if (limit.isEnabled()) {
+                                appInfo.setLimitMinutes(limit.getLimitMinutes());
+                            }
+                            // 将后端的启用状态和限制时间应用到 AppInfo
+
+                            matchedCount++;
+                        }
+
+                        adapter.refreshAppList();
+                        // 重新排序、刷新页面并保存同步后的状态
+
+                        Toast.makeText(
+                                AppManageActivity.this,
+                                "已同步 " + matchedCount + " 个应用限制",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+
+                    @Override
+                    public void onFailure(
+                            Call<List<AppLimitResponse>> call,
+                            Throwable throwable
+                    ) {
+                        Toast.makeText(
+                                AppManageActivity.this,
+                                "同步失败：" + throwable.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
+        // enqueue 表示异步请求，不会阻塞应用界面
     }
 
     private List<AppInfo> loadInstalledApps() {
