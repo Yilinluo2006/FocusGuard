@@ -12,6 +12,8 @@ public class AppInfo {
     private boolean selected;
     private int limitMinutes;
     private long todayUsageMillis;
+    private Long serverId;
+// 保存对应的后端数据库记录 ID；null 表示后端还没有该记录
     // 保存应用名称、包名、图标、是否选中、限制分钟数、今日使用时长
 
     public AppInfo(String appName, String packageName, Drawable appIcon) {
@@ -21,6 +23,8 @@ public class AppInfo {
         this.selected = false;
         this.limitMinutes = 0;
         this.todayUsageMillis = 0;
+        this.serverId = null;
+// 新创建的手机应用信息暂时没有对应的后端记录
         // 创建应用对象时，默认未选中、未限制、今日使用时长为 0
     }
 
@@ -33,6 +37,16 @@ public class AppInfo {
         return packageName;
         // 返回应用包名
     }
+
+    public Long getServerId() {
+        return serverId;
+    }
+// 返回后端记录 ID
+
+    public void setServerId(Long serverId) {
+        this.serverId = serverId;
+    }
+    // 保存该应用对应的后端记录 ID
 
     public Drawable getAppIcon() {
         return appIcon;

@@ -14,9 +14,14 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.luoyilin.focusguard.network.AppLimitRequest;
+import com.luoyilin.focusguard.network.AppLimitResponse;
+import com.luoyilin.focusguard.network.RetrofitClient;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -26,73 +31,77 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.luoyilin.focusguard.network.AppLimitResponse;
-import com.luoyilin.focusguard.network.RetrofitClient;
-
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class AppManageActivity extends AppCompatActivity {
+
     private static final String PREF_NAME = "focus_guard_prefs";
-    // SharedPreferences 文件名，用来保存本地配置
+    // SharedPreferences 文件名
 
     private static final String KEY_SELECTED_PACKAGES = "selected_packages";
     // 保存已选择应用包名集合的 key
 
     private static final String KEY_LIMIT_PREFIX = "limit_minutes_";
-    // 保存每个应用限制分钟数时使用的 key 前缀
+    // 保存应用限制时间时使用的 key 前缀
 
     private static final int DEFAULT_LIMIT_MINUTES = 30;
-    // 默认限制时间：30 分钟
+    // 默认限制时间为 30 分钟
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_app_manage);
-        // 加载应用管理页面布局
+        // 加载应用管理页面
 
         Button btnAddLimitedApp = findViewById(R.id.btnAddLimitedApp);
-        // 找到保存按钮
-
         TextView tvSelectedCount = findViewById(R.id.tvSelectedCount);
-        // 找到显示已选择数量的 TextView
-
         RecyclerView rvAppList = findViewById(R.id.rvAppList);
-        // 找到应用列表 RecyclerView
+        // 获取页面控件
 
         List<AppInfo> appList = loadInstalledApps();
-        // 读取手机应用，并恢复已保存的选择状态、限制时间、今日使用时长
+        // 读取手机中已安装的应用
 
-        tvSelectedCount.setText("已选择 " + countSelectedApps(appList) + " 个应用");
-        // 页面打开时显示当前已选择数量
+        tvSelectedCount.setText(
+                "已选择 " + countSelectedApps(appList) + " 个应用"
+        );
+        // 显示当前已选择应用数量
 
         AppListAdapter adapter = new AppListAdapter(appList);
-        // 创建适配器
+        // 创建列表适配器
 
         adapter.setOnSelectionChangedListener(selectedCount -> {
-            tvSelectedCount.setText("已选择 " + selectedCount + " 个应用");
-            // 更新顶部已选择数量
+            tvSelectedCount.setText(
+                    "已选择 " + selectedCount + " 个应用"
+            );
 
             saveSelectedApps(appList);
-            // 每次选择或限制时间变化后，保存最新状态
+            // 选择状态改变后保存到手机本地
         });
 
-        rvAppList.setLayoutManager(new LinearLayoutManager(this));
-        // 设置 RecyclerView 为竖向列表
+        adapter.setOnDeleteRequestListener(appInfo ->
+                showDeleteConfirmationDialog(
+                        appInfo,
+                        appList,
+                        adapter
+                )
+        );
+        // 长按应用时显示删除后端记录的确认弹窗
 
+        rvAppList.setLayoutManager(new LinearLayoutManager(this));
         rvAppList.setAdapter(adapter);
-        // 绑定适配器，让列表显示出来
+        // 设置 RecyclerView 为竖向列表并绑定适配器
 
         loadLimitsFromServer(appList, adapter);
-// 从后端读取限制记录，并更新当前应用列表
+        // 从 Spring Boot 后端读取已有的限制记录
 
-        btnAddLimitedApp.setOnClickListener(v -> {
+        btnAddLimitedApp.setOnClickListener(view -> {
             saveSelectedApps(appList);
-            // 手动保存当前选择和限制时间
+            // 先保存到手机本地
 
-            Toast.makeText(this, "已保存 " + countSelectedApps(appList) + " 个限制应用", Toast.LENGTH_SHORT).show();
-            // 显示保存提示
+            saveLimitsToServer(appList);
+            // 再同步到 Spring Boot 和 MySQL
         });
     }
 
@@ -100,7 +109,8 @@ public class AppManageActivity extends AppCompatActivity {
             List<AppInfo> appList,
             AppListAdapter adapter
     ) {
-        RetrofitClient.getApi().getAppLimits()
+        RetrofitClient.getApi()
+                .getAppLimits()
                 .enqueue(new Callback<List<AppLimitResponse>>() {
 
                     @Override
@@ -108,46 +118,61 @@ public class AppManageActivity extends AppCompatActivity {
                             Call<List<AppLimitResponse>> call,
                             Response<List<AppLimitResponse>> response
                     ) {
-                        if (!response.isSuccessful() || response.body() == null) {
+                        if (!response.isSuccessful()
+                                || response.body() == null) {
+
                             Toast.makeText(
                                     AppManageActivity.this,
-                                    "读取后端限制失败：" + response.code(),
-                                    Toast.LENGTH_SHORT
+                                    "读取后端限制失败，状态码："
+                                            + response.code(),
+                                    Toast.LENGTH_LONG
                             ).show();
                             return;
                         }
-                        // 检查后端是否正常返回数据
+                        // 检查后端响应是否成功
 
-                        Map<String, AppLimitResponse> limitMap = new HashMap<>();
+                        Map<String, AppLimitResponse> limitMap =
+                                new HashMap<>();
 
                         for (AppLimitResponse limit : response.body()) {
-                            limitMap.put(limit.getPackageName(), limit);
+                            limitMap.put(
+                                    limit.getPackageName(),
+                                    limit
+                            );
                         }
-                        // 用应用包名作为 key，方便快速查找对应的后端记录
+                        // 使用包名作为 key 保存后端记录
 
                         int matchedCount = 0;
 
                         for (AppInfo appInfo : appList) {
                             AppLimitResponse limit =
-                                    limitMap.get(appInfo.getPackageName());
+                                    limitMap.get(
+                                            appInfo.getPackageName()
+                                    );
 
                             if (limit == null) {
                                 continue;
                             }
-                            // 后端没有这个应用的记录，就保留原来的本地状态
+                            // 后端没有该应用记录时保留本地状态
+
+                            appInfo.setServerId(limit.getId());
+                            // 保存数据库记录 ID
 
                             appInfo.setSelected(limit.isEnabled());
+                            // 恢复后端的启用状态
 
                             if (limit.isEnabled()) {
-                                appInfo.setLimitMinutes(limit.getLimitMinutes());
+                                appInfo.setLimitMinutes(
+                                        limit.getLimitMinutes()
+                                );
                             }
-                            // 将后端的启用状态和限制时间应用到 AppInfo
+                            // 启用限制时恢复限制分钟数
 
                             matchedCount++;
                         }
 
                         adapter.refreshAppList();
-                        // 重新排序、刷新页面并保存同步后的状态
+                        // 重新排序并刷新应用列表
 
                         Toast.makeText(
                                 AppManageActivity.this,
@@ -163,198 +188,443 @@ public class AppManageActivity extends AppCompatActivity {
                     ) {
                         Toast.makeText(
                                 AppManageActivity.this,
-                                "同步失败：" + throwable.getMessage(),
+                                "连接后端失败："
+                                        + getErrorMessage(throwable),
                                 Toast.LENGTH_LONG
                         ).show();
                     }
                 });
-        // enqueue 表示异步请求，不会阻塞应用界面
+        // enqueue 会异步发送请求，不会阻塞界面
+    }
+
+    private void saveLimitsToServer(List<AppInfo> appList) {
+        int requestCount = 0;
+        // 统计需要发送的请求数量
+
+        for (AppInfo appInfo : appList) {
+            if (!appInfo.isSelected()
+                    && appInfo.getServerId() == null) {
+                continue;
+            }
+            // 从未上传且未选中的应用不需要发送
+
+            int limitMinutes = appInfo.getLimitMinutes();
+
+            if (limitMinutes <= 0) {
+                limitMinutes = DEFAULT_LIMIT_MINUTES;
+            }
+            // 后端要求限制时间至少为 1 分钟
+
+            AppLimitRequest request = new AppLimitRequest(
+                    appInfo.getPackageName(),
+                    limitMinutes,
+                    appInfo.isSelected()
+            );
+            // 将 AppInfo 转换成后端请求对象
+
+            Call<AppLimitResponse> call;
+
+            if (appInfo.getServerId() == null) {
+                call = RetrofitClient.getApi()
+                        .createAppLimit(request);
+                // 没有 serverId，使用 POST 创建新记录
+            } else {
+                call = RetrofitClient.getApi()
+                        .updateAppLimit(
+                                appInfo.getServerId(),
+                                request
+                        );
+                // 已有 serverId，使用 PUT 修改原记录
+            }
+
+            requestCount++;
+
+            call.enqueue(new Callback<AppLimitResponse>() {
+                @Override
+                public void onResponse(
+                        Call<AppLimitResponse> call,
+                        Response<AppLimitResponse> response
+                ) {
+                    if (response.isSuccessful()
+                            && response.body() != null) {
+
+                        appInfo.setServerId(
+                                response.body().getId()
+                        );
+                        // 保存后端返回的数据库 ID
+                        return;
+                    }
+
+                    Toast.makeText(
+                            AppManageActivity.this,
+                            "同步失败，状态码："
+                                    + response.code(),
+                            Toast.LENGTH_LONG
+                    ).show();
+                }
+
+                @Override
+                public void onFailure(
+                        Call<AppLimitResponse> call,
+                        Throwable throwable
+                ) {
+                    Toast.makeText(
+                            AppManageActivity.this,
+                            "网络错误："
+                                    + getErrorMessage(throwable),
+                            Toast.LENGTH_LONG
+                    ).show();
+                }
+            });
+        }
+
+        if (requestCount == 0) {
+            Toast.makeText(
+                    this,
+                    "没有需要同步的限制记录",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        Toast.makeText(
+                this,
+                "正在同步 " + requestCount + " 条限制记录",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    private void showDeleteConfirmationDialog(
+            AppInfo appInfo,
+            List<AppInfo> appList,
+            AppListAdapter adapter
+    ) {
+        if (appInfo.getServerId() == null) {
+            Toast.makeText(
+                    this,
+                    "该应用还没有后端记录，无需删除",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+        // serverId 为 null 表示 MySQL 中还没有该记录
+
+        new AlertDialog.Builder(this)
+                .setTitle("删除限制记录")
+                .setMessage(
+                        "确定要删除“"
+                                + appInfo.getAppName()
+                                + "”的后端限制记录吗？"
+                )
+                .setPositiveButton(
+                        "删除",
+                        (dialog, which) ->
+                                deleteLimitFromServer(
+                                        appInfo,
+                                        appList,
+                                        adapter
+                                )
+                )
+                .setNegativeButton("取消", null)
+                .show();
+        // 显示删除确认弹窗
+    }
+
+    private void deleteLimitFromServer(
+            AppInfo appInfo,
+            List<AppInfo> appList,
+            AppListAdapter adapter
+    ) {
+        Long serverId = appInfo.getServerId();
+
+        if (serverId == null) {
+            return;
+        }
+
+        RetrofitClient.getApi()
+                .deleteAppLimit(serverId)
+                .enqueue(new Callback<Void>() {
+
+                    @Override
+                    public void onResponse(
+                            Call<Void> call,
+                            Response<Void> response
+                    ) {
+                        if (!response.isSuccessful()) {
+                            Toast.makeText(
+                                    AppManageActivity.this,
+                                    "删除失败，状态码："
+                                            + response.code(),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                            return;
+                        }
+
+                        appInfo.setServerId(null);
+                        // 清除该应用对应的数据库 ID
+
+                        appInfo.setSelected(false);
+                        // 取消该应用的限制状态
+
+                        saveSelectedApps(appList);
+                        // 更新手机本地保存的数据
+
+                        adapter.refreshAppList();
+                        // 重新排序并刷新列表
+
+                        Toast.makeText(
+                                AppManageActivity.this,
+                                "已删除“"
+                                        + appInfo.getAppName()
+                                        + "”的限制记录",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+
+                    @Override
+                    public void onFailure(
+                            Call<Void> call,
+                            Throwable throwable
+                    ) {
+                        Toast.makeText(
+                                AppManageActivity.this,
+                                "删除请求失败："
+                                        + getErrorMessage(throwable),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
+        // 向后端发送 DELETE 请求
     }
 
     private List<AppInfo> loadInstalledApps() {
         List<AppInfo> appList = new ArrayList<>();
-        // 创建应用列表
+        // 保存最终展示的应用
 
-        Set<String> selectedPackageNames = getSavedSelectedPackageNames();
-        // 读取之前保存过的已选择应用包名
+        Set<String> selectedPackageNames =
+                getSavedSelectedPackageNames();
+        // 获取本地保存的已选择包名
 
-        Map<String, Long> todayUsageMap = loadTodayUsageMap();
-        // 读取今天每个应用的使用时长，key 是包名，value 是毫秒
+        Map<String, Long> todayUsageMap =
+                loadTodayUsageMap();
+        // 获取今日应用使用时长
 
-        PackageManager packageManager = getPackageManager();
-        // 获取系统包管理器
+        PackageManager packageManager =
+                getPackageManager();
 
-        Intent intent = new Intent(Intent.ACTION_MAIN, null);
-        // 创建查询可启动应用的 Intent
+        Intent intent = new Intent(
+                Intent.ACTION_MAIN,
+                null
+        );
 
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
-        // 只查询桌面启动器中的应用
+        // 只查询能够从桌面启动的应用
 
-        List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
-        // 查询所有可从桌面启动的应用
+        List<ResolveInfo> resolveInfoList =
+                packageManager.queryIntentActivities(
+                        intent,
+                        0
+                );
+
+        Set<String> addedPackages = new HashSet<>();
+        // 防止同一个应用因为多个启动入口而重复显示
 
         for (ResolveInfo resolveInfo : resolveInfoList) {
-            ApplicationInfo applicationInfo = resolveInfo.activityInfo.applicationInfo;
-            // 获取应用信息
+            ApplicationInfo applicationInfo =
+                    resolveInfo.activityInfo.applicationInfo;
 
-            if ((applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+            if ((applicationInfo.flags
+                    & ApplicationInfo.FLAG_SYSTEM) != 0) {
                 continue;
             }
             // 跳过系统应用
 
-            String appName = packageManager.getApplicationLabel(applicationInfo).toString();
-            // 获取应用名称
+            String packageName =
+                    applicationInfo.packageName;
 
-            String packageName = applicationInfo.packageName;
-            // 获取应用包名
+            if (!addedPackages.add(packageName)) {
+                continue;
+            }
+            // 已加入列表的包名不再重复添加
 
-            Drawable appIcon = packageManager.getApplicationIcon(applicationInfo);
-            // 获取应用图标
+            String appName = packageManager
+                    .getApplicationLabel(applicationInfo)
+                    .toString();
 
-            AppInfo appInfo = new AppInfo(appName, packageName, appIcon);
-            // 创建 AppInfo 对象
+            Drawable appIcon = packageManager
+                    .getApplicationIcon(applicationInfo);
 
-            boolean isSelected = selectedPackageNames.contains(packageName);
-            // 判断这个应用之前是否被选中过
+            AppInfo appInfo = new AppInfo(
+                    appName,
+                    packageName,
+                    appIcon
+            );
+
+            boolean isSelected =
+                    selectedPackageNames.contains(packageName);
 
             appInfo.setSelected(isSelected);
-            // 恢复选中状态
+            // 恢复本地选择状态
 
             if (isSelected) {
-                appInfo.setLimitMinutes(getSavedLimitMinutes(packageName));
+                appInfo.setLimitMinutes(
+                        getSavedLimitMinutes(packageName)
+                );
             }
-            // 如果之前被选中过，就恢复它保存的限制分钟数
+            // 恢复本地限制时间
 
-            long todayUsageMillis = todayUsageMap.containsKey(packageName)
-                    ? todayUsageMap.get(packageName)
-                    : 0;
-            // 根据包名读取这个应用今天的使用时长
+            Long usageMillis =
+                    todayUsageMap.get(packageName);
 
-            appInfo.setTodayUsageMillis(todayUsageMillis);
-            // 保存今日使用时长到 AppInfo
+            appInfo.setTodayUsageMillis(
+                    usageMillis == null ? 0 : usageMillis
+            );
+            // 保存今日使用时长
 
             appList.add(appInfo);
-            // 加入列表
         }
 
         return appList;
-        // 返回最终应用列表
     }
 
     private Map<String, Long> loadTodayUsageMap() {
         Map<String, Long> usageMap = new HashMap<>();
-        // 创建使用时长 Map，用来保存每个包名对应的今日使用时长
 
         UsageStatsManager usageStatsManager =
-                (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        // 获取 UsageStatsManager 系统服务
+                (UsageStatsManager) getSystemService(
+                        Context.USAGE_STATS_SERVICE
+                );
 
         if (usageStatsManager == null) {
             return usageMap;
         }
-        // 如果无法获取系统服务，返回空 Map
 
         Calendar calendar = Calendar.getInstance();
-        // 获取当前时间
 
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
-        // 设置为今天凌晨 00:00
+        // 将开始时间设置为今天凌晨 00:00
 
         long startTime = calendar.getTimeInMillis();
         long endTime = System.currentTimeMillis();
-        // 统计范围：今天凌晨到当前时间
 
         Map<String, UsageStats> usageStatsMap =
-                usageStatsManager.queryAndAggregateUsageStats(startTime, endTime);
-        // 查询并聚合今天每个应用的使用数据
+                usageStatsManager.queryAndAggregateUsageStats(
+                        startTime,
+                        endTime
+                );
 
-        if (usageStatsMap == null || usageStatsMap.isEmpty()) {
+        if (usageStatsMap == null
+                || usageStatsMap.isEmpty()) {
             return usageMap;
         }
-        // 没有数据时返回空 Map
 
-        for (Map.Entry<String, UsageStats> entry : usageStatsMap.entrySet()) {
-            String packageName = entry.getKey();
-            // 获取应用包名
+        for (Map.Entry<String, UsageStats> entry
+                : usageStatsMap.entrySet()) {
 
-            long usageTimeMillis = entry.getValue().getTotalTimeInForeground();
-            // 获取该应用今天在前台的使用时长
+            long usageTimeMillis = entry
+                    .getValue()
+                    .getTotalTimeInForeground();
 
-            usageMap.put(packageName, usageTimeMillis);
-            // 保存到 Map 中，方便后面按包名查找
+            usageMap.put(
+                    entry.getKey(),
+                    usageTimeMillis
+            );
         }
 
         return usageMap;
-        // 返回今日使用时长 Map
     }
 
     private Set<String> getSavedSelectedPackageNames() {
-        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        // 获取 SharedPreferences
+        SharedPreferences preferences =
+                getSharedPreferences(
+                        PREF_NAME,
+                        MODE_PRIVATE
+                );
 
-        Set<String> savedSet = preferences.getStringSet(KEY_SELECTED_PACKAGES, new HashSet<>());
-        // 读取已保存的包名集合
+        Set<String> savedSet = preferences.getStringSet(
+                KEY_SELECTED_PACKAGES,
+                new HashSet<>()
+        );
 
         return new HashSet<>(savedSet);
-        // 返回新的 HashSet，避免直接修改 SharedPreferences 内部集合
+        // 返回副本，避免直接修改 SharedPreferences 内部集合
     }
 
     private int getSavedLimitMinutes(String packageName) {
-        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        // 获取 SharedPreferences
+        SharedPreferences preferences =
+                getSharedPreferences(
+                        PREF_NAME,
+                        MODE_PRIVATE
+                );
 
-        return preferences.getInt(KEY_LIMIT_PREFIX + packageName, DEFAULT_LIMIT_MINUTES);
-        // 根据包名读取限制分钟数，如果没有保存过就返回默认 30 分钟
+        return preferences.getInt(
+                KEY_LIMIT_PREFIX + packageName,
+                DEFAULT_LIMIT_MINUTES
+        );
     }
 
     private void saveSelectedApps(List<AppInfo> appList) {
-        Set<String> selectedPackageNames = new HashSet<>();
-        // 保存当前选中的应用包名
+        Set<String> selectedPackageNames =
+                new HashSet<>();
 
-        SharedPreferences preferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        // 获取 SharedPreferences
+        SharedPreferences preferences =
+                getSharedPreferences(
+                        PREF_NAME,
+                        MODE_PRIVATE
+                );
 
-        SharedPreferences.Editor editor = preferences.edit();
-        // 创建编辑器，用来写入数据
+        SharedPreferences.Editor editor =
+                preferences.edit();
 
         for (AppInfo appInfo : appList) {
-            String packageName = appInfo.getPackageName();
-            // 获取当前应用包名
+            String packageName =
+                    appInfo.getPackageName();
 
             if (appInfo.isSelected()) {
                 selectedPackageNames.add(packageName);
-                // 如果应用被选中，就保存它的包名
 
-                editor.putInt(KEY_LIMIT_PREFIX + packageName, appInfo.getLimitMinutes());
-                // 保存这个应用对应的限制分钟数
+                editor.putInt(
+                        KEY_LIMIT_PREFIX + packageName,
+                        appInfo.getLimitMinutes()
+                );
             } else {
-                editor.remove(KEY_LIMIT_PREFIX + packageName);
-                // 如果应用未选中，就删除它之前保存的限制分钟数
+                editor.remove(
+                        KEY_LIMIT_PREFIX + packageName
+                );
             }
         }
 
-        editor.putStringSet(KEY_SELECTED_PACKAGES, selectedPackageNames);
-        // 保存所有已选择应用的包名集合
+        editor.putStringSet(
+                KEY_SELECTED_PACKAGES,
+                selectedPackageNames
+        );
 
         editor.apply();
-        // 异步提交保存
+        // 异步保存到手机本地
     }
 
     private int countSelectedApps(List<AppInfo> appList) {
         int count = 0;
-        // 计数器
 
         for (AppInfo appInfo : appList) {
             if (appInfo.isSelected()) {
                 count++;
             }
         }
-        // 统计 selected 为 true 的应用数量
 
         return count;
-        // 返回已选择数量
+    }
+
+    private String getErrorMessage(Throwable throwable) {
+        if (throwable == null
+                || throwable.getMessage() == null) {
+            return "未知错误";
+        }
+
+        return throwable.getMessage();
+        // 避免错误信息为 null
     }
 }

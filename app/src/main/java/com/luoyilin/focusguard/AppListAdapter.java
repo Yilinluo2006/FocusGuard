@@ -17,30 +17,49 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+
 public class AppListAdapter
         extends RecyclerView.Adapter<AppListAdapter.AppViewHolder> {
 
     private final List<AppInfo> appList;
+    // 保存需要显示的应用列表
+
     private OnSelectionChangedListener selectionChangedListener;
-    // 保存应用列表和状态变化监听器
+    // 保存应用选择状态变化监听器
+
+    private OnDeleteRequestListener deleteRequestListener;
+    // 保存长按删除请求监听器
 
     public interface OnSelectionChangedListener {
         void onSelectionChanged(int selectedCount);
-        // 应用状态变化时通知 Activity
+
     }
+    // 应用状态变化时通知 Activity，并传递已选择数量
+
+    public interface OnDeleteRequestListener {
+        void onDeleteRequested(AppInfo appInfo);
+    }
+    // 用户长按应用时，将对应 AppInfo 传给 Activity
 
     public AppListAdapter(List<AppInfo> appList) {
         this.appList = appList;
         sortAppList();
-//         创建适配器时，先按选中状态和今日使用时长排序
     }
+    // 创建适配器并对应用列表进行第一次排序
 
     public void setOnSelectionChangedListener(
             OnSelectionChangedListener listener
     ) {
         this.selectionChangedListener = listener;
-        // 设置状态变化监听器
     }
+    // 设置应用状态变化监听器
+
+    public void setOnDeleteRequestListener(
+            OnDeleteRequestListener listener
+    ) {
+        this.deleteRequestListener = listener;
+    }
+    // 设置长按删除请求监听器
 
     @NonNull
     @Override
@@ -50,11 +69,10 @@ public class AppListAdapter
     ) {
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_app, parent, false);
-        // 加载单个应用的列表项布局
 
         return new AppViewHolder(view);
-        // 创建并返回 ViewHolder
     }
+    // 加载单个应用布局并创建 ViewHolder
 
     @Override
     public void onBindViewHolder(
@@ -62,63 +80,73 @@ public class AppListAdapter
             int position
     ) {
         AppInfo appInfo = appList.get(position);
-        // 获取当前位置对应的应用数据
+        // 获取当前位置对应的应用
 
         holder.ivAppIcon.setImageDrawable(appInfo.getAppIcon());
         holder.tvAppName.setText(appInfo.getAppName());
         holder.tvPackageName.setText(appInfo.getPackageName());
         holder.tvLimitTime.setText(appInfo.getUsageAndLimitText());
         holder.swSelected.setChecked(appInfo.isSelected());
-        // 将应用数据绑定到列表控件
+        // 把应用信息显示到列表控件中
 
         holder.itemView.setOnClickListener(v -> {
             int currentPosition = holder.getAdapterPosition();
-            // 获取用户点击时最新的列表位置
 
             if (currentPosition == RecyclerView.NO_POSITION) {
                 return;
             }
-            // 如果列表位置失效，就停止处理
+            // 列表位置失效时停止处理
 
             AppInfo currentApp = appList.get(currentPosition);
             currentApp.setSelected(!currentApp.isSelected());
-            // 切换当前应用的选择状态
+            // 点击整行时切换应用限制状态
 
             sortAppList();
-            // 重新排序：已选应用置顶，并按今日使用时长降序排列
-
             notifyDataSetChanged();
-            // 刷新整个列表，因为排序后应用位置可能变化
-
             notifySelectionChanged();
-            // 通知 Activity 更新数量并保存
+            // 重新排序、刷新并通知 Activity 保存
+        });
+
+        holder.itemView.setOnLongClickListener(v -> {
+            int currentPosition = holder.getAdapterPosition();
+
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return false;
+            }
+            // 长按位置失效时停止处理
+
+            AppInfo currentApp = appList.get(currentPosition);
+            // 获取被长按的应用
+
+            if (deleteRequestListener != null) {
+                deleteRequestListener.onDeleteRequested(currentApp);
+            }
+            // 将删除请求交给 Activity
+
+            return true;
+            // 消费长按事件，避免继续触发普通点击
         });
 
         holder.swSelected.setOnClickListener(v -> {
             int currentPosition = holder.getAdapterPosition();
-            // 获取开关对应的最新列表位置
 
             if (currentPosition == RecyclerView.NO_POSITION) {
                 return;
             }
+            // 获取开关对应的最新位置
 
             AppInfo currentApp = appList.get(currentPosition);
             currentApp.setSelected(holder.swSelected.isChecked());
-            // 将 Switch 状态同步到应用数据
+            // 将开关状态同步到 AppInfo
 
             sortAppList();
-            // 重新排序列表
-
             notifyDataSetChanged();
-            // 刷新整个列表
-
             notifySelectionChanged();
-            // 通知 Activity 更新数量并保存
+            // 重新排序、刷新并通知 Activity 保存
         });
 
         holder.tvLimitTime.setOnClickListener(v -> {
             int currentPosition = holder.getAdapterPosition();
-            // 获取当前应用最新的列表位置
 
             if (currentPosition == RecyclerView.NO_POSITION) {
                 return;
@@ -134,49 +162,50 @@ public class AppListAdapter
                 ).show();
                 return;
             }
-            // 未开启限制时，不允许设置时间
+            // 未开启限制时不允许设置时间
 
             showLimitTimeDialog(
                     v.getContext(),
                     currentApp,
                     currentPosition
             );
-            // 显示限制时间选择弹窗
         });
     }
 
     private void sortAppList() {
         Collections.sort(appList, new Comparator<AppInfo>() {
             @Override
-            public int compare(AppInfo firstApp, AppInfo secondApp) {
-                if (firstApp.isSelected() && !secondApp.isSelected()) {
+            public int compare(
+                    AppInfo firstApp,
+                    AppInfo secondApp
+            ) {
+                if (firstApp.isSelected()
+                        && !secondApp.isSelected()) {
                     return -1;
                 }
-                // 已选中的应用排在未选中的应用前面
+                // 已选择应用排在前面
 
-                if (!firstApp.isSelected() && secondApp.isSelected()) {
+                if (!firstApp.isSelected()
+                        && secondApp.isSelected()) {
                     return 1;
                 }
-                // 未选中的应用排在已选中的应用后面
+                // 未选择应用排在后面
 
                 return Long.compare(
                         secondApp.getTodayUsageMillis(),
                         firstApp.getTodayUsageMillis()
                 );
-                // 同一组内按今日使用时长从大到小排序
+                // 同组应用按照今日使用时间降序排列
             }
         });
     }
+
     public void refreshAppList() {
         sortAppList();
-        // 根据“已限制优先、使用时间降序”的规则重新排序
-
         notifyDataSetChanged();
-        // 通知 RecyclerView 重新显示全部列表项
-
         notifySelectionChanged();
-        // 通知 Activity 更新“已选择几个应用”并保存最新状态
     }
+    // 后端数据改变后，重新排序、刷新并通知 Activity
 
     private void showLimitTimeDialog(
             Context context,
@@ -192,30 +221,32 @@ public class AppListAdapter
         // 弹窗显示的时间选项
 
         int[] timeValues = {15, 30, 60, 120};
-        // 每个选项对应的分钟数
+        // 时间选项对应的分钟数
 
         new AlertDialog.Builder(context)
-                .setTitle("设置 " + appInfo.getAppName() + " 的每日限制")
+                .setTitle(
+                        "设置 "
+                                + appInfo.getAppName()
+                                + " 的每日限制"
+                )
                 .setItems(timeOptions, (dialog, which) -> {
                     appInfo.setLimitMinutes(timeValues[which]);
-                    // 保存用户选择的分钟数
+                    // 保存用户选择的时间
 
                     notifyItemChanged(position);
-                    // 更新当前列表项
-
                     notifySelectionChanged();
-                    // 通知 Activity 保存最新状态
+                    // 刷新当前应用并通知 Activity 保存
                 })
                 .setNegativeButton("取消", null)
                 .show();
-        // 创建并显示时间选择弹窗
     }
+    // 创建并显示限制时间选择弹窗
 
     @Override
     public int getItemCount() {
         return appList.size();
-        // 返回应用总数
     }
+    // 返回应用列表总数
 
     private int getSelectedCount() {
         int count = 0;
@@ -225,19 +256,23 @@ public class AppListAdapter
                 count++;
             }
         }
-        // 统计已选择的应用数量
 
         return count;
     }
+    // 统计当前已选择的应用数量
 
     private void notifySelectionChanged() {
         if (selectionChangedListener != null) {
-            selectionChangedListener.onSelectionChanged(getSelectedCount());
+            selectionChangedListener.onSelectionChanged(
+                    getSelectedCount()
+            );
         }
-        // 通知 Activity 当前已选择数量
     }
+    // 把最新选择数量通知给 Activity
 
-    static class AppViewHolder extends RecyclerView.ViewHolder {
+    static class AppViewHolder
+            extends RecyclerView.ViewHolder {
+
         ImageView ivAppIcon;
         TextView tvAppName;
         TextView tvPackageName;
@@ -247,12 +282,21 @@ public class AppListAdapter
         public AppViewHolder(@NonNull View itemView) {
             super(itemView);
 
-            ivAppIcon = itemView.findViewById(R.id.ivAppIcon);
-            tvAppName = itemView.findViewById(R.id.tvAppName);
-            tvPackageName = itemView.findViewById(R.id.tvPackageName);
-            tvLimitTime = itemView.findViewById(R.id.tvLimitTime);
-            swSelected = itemView.findViewById(R.id.swSelected);
-            // 找到单个列表项中的所有控件
+            ivAppIcon =
+                    itemView.findViewById(R.id.ivAppIcon);
+
+            tvAppName =
+                    itemView.findViewById(R.id.tvAppName);
+
+            tvPackageName =
+                    itemView.findViewById(R.id.tvPackageName);
+
+            tvLimitTime =
+                    itemView.findViewById(R.id.tvLimitTime);
+
+            swSelected =
+                    itemView.findViewById(R.id.swSelected);
         }
+        // 找到单个列表项中的全部控件
     }
 }
