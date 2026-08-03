@@ -25,14 +25,8 @@ import java.util.Set;
 
 import android.widget.Toast;
 
-import com.luoyilin.focusguard.network.AppLimitResponse;
-import com.luoyilin.focusguard.network.RetrofitClient;
-
-import java.util.List;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.luoyilin.focusguard.sync.LimitSyncManager;
+// 统一负责从后端下载限制规则并保存到 SharedPreferences
 
 //        跳转到应用管理页
 //        跳转到权限引导页
@@ -58,9 +52,6 @@ public class MainActivity extends AppCompatActivity {
 
         tvTodayUsage = findViewById(R.id.tvTodayUsage);
         // 找到显示今日使用时长的 TextView
-
-        fetchAppLimitsFromServer();
-// 首页创建完成后，向后端查询应用限制数据
 
         Button btnManageApps = findViewById(R.id.btnManageApps);
         // 找到应用限制管理按钮
@@ -100,72 +91,43 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void fetchAppLimitsFromServer() {
-        Call<List<AppLimitResponse>> call =
-                RetrofitClient.getApi().getAppLimits();
-        // 创建 GET /api/limits 网络请求，此时请求还没有真正发出
-
-        call.enqueue(new Callback<List<AppLimitResponse>>() {
-            @Override
-            public void onResponse(
-                    Call<List<AppLimitResponse>> call,
-                    Response<List<AppLimitResponse>> response
-            ) {
-                if (response.isSuccessful()
-                        && response.body() != null) {
-
-                    int recordCount = response.body().size();
-                    // 获取后端返回的限制记录数量
-
-                    Toast.makeText(
-                            MainActivity.this,
-                            "后端连接成功，共 "
-                                    + recordCount
-                                    + " 条限制记录",
-                            Toast.LENGTH_LONG
-                    ).show();
-                    // 请求成功时在手机上显示记录数量
-
-                    return;
-                }
-
-                Toast.makeText(
-                        MainActivity.this,
-                        "后端返回错误：" + response.code(),
-                        Toast.LENGTH_LONG
-                ).show();
-                // 已连接服务器，但服务器返回了 404、500 等错误
-            }
-
-            @Override
-            public void onFailure(
-                    Call<List<AppLimitResponse>> call,
-                    Throwable throwable
-            ) {
-                String errorMessage = throwable.getMessage();
-
-                if (errorMessage == null) {
-                    errorMessage = "未知网络错误";
-                }
-                // 某些异常可能没有具体错误文字，因此提供默认提示
-
-                Toast.makeText(
-                        MainActivity.this,
-                        "连接后端失败：" + errorMessage,
-                        Toast.LENGTH_LONG
-                ).show();
-                // 无法连接服务器时显示网络错误
-            }
-        });
-        // enqueue 表示异步发送请求，不阻塞安卓界面
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
+        // 每次首页显示时都会执行，例如首次打开应用或从其他页面返回
 
         updateTodayUsage();
-        // 首页出现或从其他页面返回时，重新读取今日使用时长
+        // 先使用当前本地缓存更新页面，避免等待网络时页面没有内容
+
+        LimitSyncManager.syncFromServer(
+                this,
+                new LimitSyncManager.SyncCallback() {
+
+                    @Override
+                    public void onSuccess(int enabledCount) {
+                        updateTodayUsage();
+                        // 同步完成后重新计算，因为受限制应用可能已经发生变化
+
+                        Toast.makeText(
+                                MainActivity.this,
+                                "已同步 " + enabledCount + " 个限制",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                        // 显示本次从后端同步到的启用规则数量
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                MainActivity.this,
+                                "同步失败，继续使用本地配置：" + message,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        // 网络失败时不清空旧规则，继续使用上一次成功同步的数据
+                    }
+                }
+        );
+        // 异步请求后端，不会阻塞安卓界面
     }
 
     private void updateTodayUsage() {

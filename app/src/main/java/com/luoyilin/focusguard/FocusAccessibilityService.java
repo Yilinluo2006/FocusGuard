@@ -18,6 +18,9 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.luoyilin.focusguard.sync.LimitSyncManager;
+// 导入刚刚创建的后端限制同步工具
+
 public class FocusAccessibilityService extends AccessibilityService {
 
     private static final String PREF_NAME = "focus_guard_prefs";
@@ -49,7 +52,37 @@ public class FocusAccessibilityService extends AccessibilityService {
                 "FocusGuard 强制限制服务已启动",
                 Toast.LENGTH_SHORT
         ).show();
-        // 无障碍服务真正启动时给一个提示，方便确认服务是否生效
+        // 无障碍服务启动成功时显示提示
+
+        LimitSyncManager.syncFromServer(
+                this,
+                new LimitSyncManager.SyncCallback() {
+
+                    @Override
+                    public void onSuccess(int enabledCount) {
+                        Toast.makeText(
+                                FocusAccessibilityService.this,
+                                "已从后端同步 "
+                                        + enabledCount
+                                        + " 个限制",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                    // 同步成功后显示已启用的限制数量
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                FocusAccessibilityService.this,
+                                "后端同步失败，继续使用本地配置："
+                                        + message,
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                    // 同步失败时不清空缓存，继续使用上一次配置
+                }
+        );
+        // 无障碍服务启动时异步获取后端限制
     }
 
     @Override

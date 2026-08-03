@@ -142,8 +142,6 @@ public class AppManageActivity extends AppCompatActivity {
                         }
                         // 使用包名作为 key 保存后端记录
 
-                        int matchedCount = 0;
-
                         for (AppInfo appInfo : appList) {
                             AppLimitResponse limit =
                                     limitMap.get(
@@ -167,18 +165,11 @@ public class AppManageActivity extends AppCompatActivity {
                                 );
                             }
                             // 启用限制时恢复限制分钟数
-
-                            matchedCount++;
                         }
 
                         adapter.refreshAppList();
                         // 重新排序并刷新应用列表
 
-                        Toast.makeText(
-                                AppManageActivity.this,
-                                "已同步 " + matchedCount + " 个应用限制",
-                                Toast.LENGTH_SHORT
-                        ).show();
                     }
 
                     @Override
