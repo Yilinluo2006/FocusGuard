@@ -33,6 +33,8 @@ import com.luoyilin.focusguard.sync.LimitSyncManager;
 //        显示所有受限应用的今日总使用时长
 //        处理状态栏和导航栏边距
 
+import com.luoyilin.focusguard.auth.SessionManager;
+
 public class MainActivity extends AppCompatActivity {
     private static final String PREF_NAME = "focus_guard_prefs";
     // SharedPreferences 文件名
@@ -46,6 +48,27 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        SessionManager sessionManager = new SessionManager(this);
+        // 创建登录状态管理对象
+
+        if (!sessionManager.isLoggedIn()) {
+            Intent intent = new Intent(
+                    MainActivity.this,
+                    LoginActivity.class
+            );
+            // 创建跳转到登录页面的 Intent
+
+            startActivity(intent);
+            // 打开登录页面
+
+            finish();
+            // 关闭当前首页，防止按返回键绕过登录页面
+
+            return;
+            // 停止继续执行首页的初始化代码
+        }
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         // 加载首页布局
