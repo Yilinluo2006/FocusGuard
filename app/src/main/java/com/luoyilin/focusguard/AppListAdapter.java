@@ -17,6 +17,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import android.text.InputType;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+
 
 public class AppListAdapter
         extends RecyclerView.Adapter<AppListAdapter.AppViewHolder> {
@@ -212,35 +216,91 @@ public class AppListAdapter
             AppInfo appInfo,
             int position
     ) {
-        String[] timeOptions = {
-                "15 分钟",
-                "30 分钟",
-                "60 分钟",
-                "120 分钟"
-        };
-        // 弹窗显示的时间选项
+        EditText etLimitMinutes = new EditText(context);
+        // 创建用于输入限制分钟数的输入框
 
-        int[] timeValues = {15, 30, 60, 120};
-        // 时间选项对应的分钟数
+        etLimitMinutes.setInputType(InputType.TYPE_CLASS_NUMBER);
+        // 只允许用户输入数字
 
-        new AlertDialog.Builder(context)
-                .setTitle(
-                        "设置 "
-                                + appInfo.getAppName()
-                                + " 的每日限制"
+        etLimitMinutes.setHint("请输入 1 到 1440 分钟");
+        // 提示允许输入的范围
+
+        etLimitMinutes.setText(String.valueOf(appInfo.getLimitMinutes()));
+        // 显示当前已经设置的限制时间
+
+        etLimitMinutes.selectAll();
+        // 打开弹窗后选中原来的数字，方便直接修改
+
+        int padding = (int) (24 * context.getResources()
+                .getDisplayMetrics().density);
+        // 把 24dp 转换成当前设备使用的像素值
+
+        LinearLayout inputContainer = new LinearLayout(context);
+        inputContainer.setPadding(padding, 0, padding, 0);
+        inputContainer.addView(
+                etLimitMinutes,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                .setItems(timeOptions, (dialog, which) -> {
-                    appInfo.setLimitMinutes(timeValues[which]);
-                    // 保存用户选择的时间
+        );
+        // 给输入框添加左右间距，使弹窗布局更整齐
 
-                    notifyItemChanged(position);
-                    notifySelectionChanged();
-                    // 刷新当前应用并通知 Activity 保存
-                })
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setTitle("设置 " + appInfo.getAppName() + " 的每日限制")
+                .setView(inputContainer)
+                .setPositiveButton("保存", null)
                 .setNegativeButton("取消", null)
-                .show();
+                .create();
+        // 创建限制时间输入弹窗
+
+        dialog.setOnShowListener(unused ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> {
+                            String inputText = etLimitMinutes
+                                    .getText()
+                                    .toString()
+                                    .trim();
+                            // 获取并整理用户输入的内容
+
+                            if (inputText.isEmpty()) {
+                                etLimitMinutes.setError("请输入限制时间");
+                                return;
+                            }
+                            // 阻止保存空内容
+
+                            try {
+                                int limitMinutes = Integer.parseInt(inputText);
+                                // 把字符串转换成整数分钟数
+
+                                if (limitMinutes < 1 || limitMinutes > 1440) {
+                                    etLimitMinutes.setError(
+                                            "限制时间必须在 1 到 1440 分钟之间"
+                                    );
+                                    return;
+                                }
+                                // 检查时间是否处于合理范围
+
+                                appInfo.setLimitMinutes(limitMinutes);
+                                // 更新当前应用对象里的限制时间
+
+                                notifyItemChanged(position);
+                                // 刷新当前应用在 RecyclerView 中的显示
+
+                                notifySelectionChanged();
+                                // 通知 Activity 保存本地数据并同步到后端
+
+                                dialog.dismiss();
+                                // 保存成功后关闭弹窗
+                            } catch (NumberFormatException exception) {
+                                etLimitMinutes.setError("请输入有效的整数");
+                            }
+                            // 防止输入内容无法转换成整数
+                        })
+        );
+        dialog.show();
+        // 显示弹窗
     }
-    // 创建并显示限制时间选择弹窗
 
     @Override
     public int getItemCount() {

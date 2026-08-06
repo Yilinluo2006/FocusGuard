@@ -37,7 +37,10 @@ public final class RetrofitClient {
         // 创建登录状态管理器，用于读取 JWT
 
         AuthInterceptor authInterceptor =
-                new AuthInterceptor(sessionManager);
+                new AuthInterceptor(
+                        applicationContext,
+                        sessionManager
+                );
         // 创建自动添加 JWT 的请求拦截器
 
         OkHttpClient okHttpClient =
