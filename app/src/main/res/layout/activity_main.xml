@@ -76,5 +76,16 @@
             android:textColor="#2563EB"
             android:textSize="16sp" />
 
+        <!-- 退出当前账号 -->
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#FFFFFF"
+            android:text="退出登录"
+            android:textColor="#DC2626"
+            android:textSize="16sp" />
+
     </LinearLayout>
 </ScrollView>

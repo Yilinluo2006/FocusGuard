@@ -82,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
         Button btnUsagePermission = findViewById(R.id.btnUsagePermission);
         // 找到使用情况访问权限按钮
 
+        Button btnLogout = findViewById(R.id.btnLogout);
+        // 找到首页中的“退出登录”按钮
+
         btnManageApps.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, AppManageActivity.class);
             // 创建跳转到应用限制管理页面的 Intent
@@ -96,6 +99,26 @@ public class MainActivity extends AppCompatActivity {
 
             startActivity(intent);
             // 打开权限引导页面
+        });
+
+        btnLogout.setOnClickListener(v -> {
+            sessionManager.clearSession();
+            // 清除手机本地保存的 JWT、用户 ID、用户名和邮箱等登录信息
+
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            // 创建从首页跳转到登录页面的 Intent
+
+            intent.setFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_CLEAR_TASK
+            );
+            // 清空原来的页面栈，防止按返回键重新进入首页
+
+            startActivity(intent);
+            // 打开登录页面
+
+            finish();
+            // 关闭当前首页
         });
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {

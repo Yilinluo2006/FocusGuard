@@ -12,32 +12,38 @@ import retrofit2.http.Path;
 
 public interface FocusGuardApi {
 
+    @POST("api/auth/register")
+    Call<RegisterResponse> register(
+            @Body RegisterRequest request
+    );
+    // POST：把用户名、邮箱和密码发送给后端注册接口
+
     @POST("api/auth/login")
     Call<LoginResponse> login(
             @Body LoginRequest request
     );
-    // 把邮箱和密码发送给登录接口，并接收 JWT 等用户信息
+    // POST：把邮箱和密码发送给后端登录接口，并接收 JWT
 
     @GET("api/limits")
     Call<List<AppLimitResponse>> getAppLimits();
-    // GET：查询当前登录用户的全部限制记录
+    // GET：查询当前登录用户的全部应用限制
 
     @POST("api/limits")
     Call<AppLimitResponse> createAppLimit(
             @Body AppLimitRequest request
     );
-    // POST：创建一条新的限制记录
+    // POST：创建一条新的应用限制
 
     @PUT("api/limits/{id}")
     Call<AppLimitResponse> updateAppLimit(
             @Path("id") Long id,
             @Body AppLimitRequest request
     );
-    // PUT：根据 ID 修改已有的限制记录
+    // PUT：根据 ID 修改已有的应用限制
 
     @DELETE("api/limits/{id}")
     Call<Void> deleteAppLimit(
             @Path("id") Long id
     );
-    // DELETE：根据 ID 删除限制记录
+    // DELETE：根据 ID 删除应用限制
 }

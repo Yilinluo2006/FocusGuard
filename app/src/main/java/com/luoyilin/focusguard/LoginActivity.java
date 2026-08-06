@@ -32,6 +32,9 @@ public class LoginActivity extends AppCompatActivity {
     private Button btnLogin;
     // 登录按钮
 
+    private Button btnGoRegister;
+// 打开注册页面的按钮
+
     private ProgressBar progressLogin;
     // 登录请求进行时显示的加载图标
 
@@ -50,11 +53,21 @@ public class LoginActivity extends AppCompatActivity {
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
+        btnGoRegister = findViewById(R.id.btnGoRegister);
         progressLogin = findViewById(R.id.progressLogin);
-        // 根据 XML 中的 id 获取页面控件
+        // 根据 XML 中的 ID 获取登录按钮、注册入口和加载图标
 
         btnLogin.setOnClickListener(view -> login());
         // 点击登录按钮时执行 login 方法
+
+        btnGoRegister.setOnClickListener(view -> {
+            Intent intent = new Intent(
+                    LoginActivity.this,
+                    RegisterActivity.class
+            );
+            startActivity(intent);
+        });
+        // 点击“立即注册”后打开 RegisterActivity
     }
 
     private void login() {
@@ -178,5 +191,8 @@ public class LoginActivity extends AppCompatActivity {
 
         btnLogin.setEnabled(!loading);
         // 请求期间禁用按钮，避免用户连续点击
+
+        btnGoRegister.setEnabled(!loading);
+        // 登录请求进行时暂时禁止跳转注册页面
     }
 }
