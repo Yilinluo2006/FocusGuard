@@ -27,6 +27,11 @@
         android:theme="@style/Theme.FocusGuard"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".EmailVerificationActivity"
+            android:exported="false" />
+        <!-- 注册邮箱验证页面，只允许应用内部打开 -->
+
+        <activity
             android:name=".ForgotPasswordActivity"
             android:exported="false" />
         <!-- 注册忘记密码页面，只允许应用内部打开 -->

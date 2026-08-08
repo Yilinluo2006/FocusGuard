@@ -2,6 +2,7 @@ package com.luoyilin.focusguard;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -224,6 +225,10 @@ public class AppListAdapter
 
         etLimitMinutes.setHint("请输入 1 到 1440 分钟");
         // 提示允许输入的范围
+
+        etLimitMinutes.setTextColor(Color.parseColor("#111827"));
+        etLimitMinutes.setHintTextColor(Color.parseColor("#4B5563"));
+        // 与登录、注册等页面保持一致，确保正文和提示文字清晰可见
 
         etLimitMinutes.setText(String.valueOf(appInfo.getLimitMinutes()));
         // 显示当前已经设置的限制时间

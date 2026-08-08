@@ -15,28 +15,28 @@
         android:paddingEnd="28dp"
         android:paddingBottom="48dp">
 
-        <!-- 忘记密码页面标题 -->
+        <!-- 注册邮箱验证页面标题 -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="重置密码"
+            android:text="验证注册邮箱"
             android:textColor="#111827"
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <!-- 简要说明验证码的接收位置 -->
+        <!-- 告知用户验证码的接收位置和有效期 -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:gravity="center"
-            android:text="验证码将发送到你的注册邮箱"
+            android:text="输入邮件中的 6 位验证码，验证后即可登录"
             android:textColor="#6B7280"
             android:textSize="15sp" />
 
-        <!-- 注册邮箱输入框 -->
+        <!-- 注册邮箱输入框，注册页传入时会自动填写 -->
         <EditText
-            android:id="@+id/etResetEmail"
+            android:id="@+id/etVerificationEmail"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginTop="32dp"
@@ -49,9 +49,9 @@
             android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
-        <!-- 请求后端发送六位验证码 -->
+        <!-- 请求后端重新发送注册邮箱验证码 -->
         <Button
-            android:id="@+id/btnSendResetCode"
+            android:id="@+id/btnSendVerificationCode"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
@@ -61,9 +61,9 @@
             android:textColor="#2563EB"
             android:textSize="15sp" />
 
-        <!-- 六位验证码输入框 -->
+        <!-- 输入邮件中收到的六位数字验证码 -->
         <EditText
-            android:id="@+id/etResetCode"
+            android:id="@+id/etVerificationCode"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginTop="8dp"
@@ -76,51 +76,21 @@
             android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
-        <!-- 新密码输入框 -->
-        <EditText
-            android:id="@+id/etNewPassword"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="14dp"
-            android:autofillHints="newPassword"
-            android:hint="新密码（8 到 64 个字符）"
-            android:inputType="textPassword"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:textColor="@color/input_text"
-            android:textColorHint="@color/input_hint"
-            android:singleLine="true" />
-
-        <!-- 再次输入新密码，只在 Android 本地比较 -->
-        <EditText
-            android:id="@+id/etConfirmNewPassword"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="14dp"
-            android:autofillHints="newPassword"
-            android:hint="再次输入新密码"
-            android:inputType="textPassword"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:textColor="@color/input_text"
-            android:textColorHint="@color/input_hint"
-            android:singleLine="true" />
-
-        <!-- 提交验证码和新密码 -->
+        <!-- 提交邮箱和验证码完成验证 -->
         <Button
-            android:id="@+id/btnResetPassword"
+            android:id="@+id/btnVerifyEmail"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
             android:backgroundTint="#2563EB"
-            android:text="重置密码"
+            android:text="完成验证"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             android:textSize="16sp" />
 
         <!-- 网络请求期间显示加载状态 -->
         <ProgressBar
-            android:id="@+id/progressPasswordReset"
+            android:id="@+id/progressEmailVerification"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_marginTop="16dp"
@@ -128,7 +98,7 @@
 
         <!-- 关闭当前页面并返回登录页 -->
         <Button
-            android:id="@+id/btnBackToLogin"
+            android:id="@+id/btnBackToLoginFromVerification"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"

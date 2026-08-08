@@ -168,6 +168,25 @@ public class LoginActivity extends AppCompatActivity {
                             ).show();
                             // 401 表示身份验证失败
 
+                        } else if (response.code() == 403) {
+                            Toast.makeText(
+                                    LoginActivity.this,
+                                    "请先完成注册邮箱验证",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                            // 403 表示密码正确，但注册邮箱尚未验证
+
+                            Intent intent = new Intent(
+                                    LoginActivity.this,
+                                    EmailVerificationActivity.class
+                            );
+                            intent.putExtra(
+                                    EmailVerificationActivity.EXTRA_EMAIL,
+                                    email
+                            );
+                            startActivity(intent);
+                            // 打开邮箱验证页，并自动带入当前登录邮箱
+
                         } else if (response.code() == 400) {
                             Toast.makeText(
                                     LoginActivity.this,

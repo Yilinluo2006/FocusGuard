@@ -1,5 +1,6 @@
 package com.luoyilin.focusguard;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Patterns;
 import android.view.View;
@@ -136,26 +137,48 @@ public class RegisterActivity extends AppCompatActivity {
                         setLoading(false);
                         // 收到后端响应后恢复按钮状态
 
-                        if (response.isSuccessful()
-                                && response.body() != null) {
+                        if (response.isSuccessful()) {
 
                             Toast.makeText(
                                     RegisterActivity.this,
-                                    "注册成功，请登录",
-                                    Toast.LENGTH_SHORT
+                                    "注册成功，验证码已发送到邮箱",
+                                    Toast.LENGTH_LONG
                             ).show();
-                            // 提示账号已经成功创建
+                            // 提示账号已经创建，并需要继续验证邮箱
+
+                            RegisterResponse responseBody = response.body();
+                            String registeredEmail = responseBody == null
+                                    ? null
+                                    : responseBody.getEmail();
+
+                            if (registeredEmail == null
+                                    || registeredEmail.trim().isEmpty()) {
+                                registeredEmail = email;
+                            }
+                            // 优先使用后端标准化后的邮箱，缺失时使用页面输入值
+
+                            openEmailVerificationPage(
+                                    registeredEmail,
+                                    true
+                            );
+                            // 打开邮箱验证页，并告知它验证码已经发送
 
                             finish();
-                            // 关闭注册页面，返回登录页面
+                            // 关闭注册页面，验证完成后会直接返回登录页
 
                         } else if (response.code() == 409) {
                             Toast.makeText(
                                     RegisterActivity.this,
-                                    "用户名或邮箱已经被注册",
-                                    Toast.LENGTH_SHORT
+                                    "账号已存在，请继续完成邮箱验证",
+                                    Toast.LENGTH_LONG
                             ).show();
                             // 409 表示用户名或邮箱与已有账号冲突
+
+                            openEmailVerificationPage(email, false);
+                            // 未验证账号再次注册时，仍允许进入验证码页面
+
+                            finish();
+                            // 关闭注册页，使邮箱验证完成后返回登录页
 
                         } else if (response.code() == 400) {
                             Toast.makeText(
@@ -192,6 +215,26 @@ public class RegisterActivity extends AppCompatActivity {
                     }
                 });
         // enqueue 异步发送请求，不会阻塞 Android 主界面
+    }
+
+    private void openEmailVerificationPage(
+            String email,
+            boolean codeAlreadySent
+    ) {
+        Intent intent = new Intent(
+                RegisterActivity.this,
+                EmailVerificationActivity.class
+        );
+        intent.putExtra(
+                EmailVerificationActivity.EXTRA_EMAIL,
+                email
+        );
+        intent.putExtra(
+                EmailVerificationActivity.EXTRA_CODE_ALREADY_SENT,
+                codeAlreadySent
+        );
+        startActivity(intent);
+        // 打开邮箱验证页，并自动带入注册邮箱和验证码发送状态
     }
 
     private void setLoading(boolean loading) {

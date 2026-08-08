@@ -18,6 +18,18 @@ public interface FocusGuardApi {
     );
     // POST：把用户名、邮箱和密码发送给后端注册接口
 
+    @POST("api/auth/email-verification/request")
+    Call<EmailVerificationResponse> requestEmailVerificationCode(
+            @Body EmailVerificationCodeRequest request
+    );
+    // POST：请求后端向尚未验证的注册邮箱发送六位验证码
+
+    @POST("api/auth/email-verification/confirm")
+    Call<EmailVerificationResponse> confirmEmailVerification(
+            @Body EmailVerificationConfirmRequest request
+    );
+    // POST：提交注册邮箱和验证码，完成邮箱验证
+
     @POST("api/auth/login")
     Call<LoginResponse> login(
             @Body LoginRequest request

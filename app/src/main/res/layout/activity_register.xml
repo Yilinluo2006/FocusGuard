@@ -45,6 +45,8 @@
             android:maxLines="1"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
+            android:textColor="@color/input_text"
+            android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
         <!-- 邮箱输入框 -->
@@ -59,6 +61,8 @@
             android:maxLines="1"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
+            android:textColor="@color/input_text"
+            android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
         <!-- 密码输入框 -->
@@ -73,6 +77,8 @@
             android:maxLines="1"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
+            android:textColor="@color/input_text"
+            android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
         <!-- 确认密码输入框，只用于本地比较 -->
@@ -87,6 +93,8 @@
             android:maxLines="1"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
+            android:textColor="@color/input_text"
+            android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
         <!-- 提交注册请求 -->
@@ -96,7 +104,7 @@
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
             android:backgroundTint="#2563EB"
-            android:text="注册"
+            android:text="注册并验证邮箱"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             android:textSize="16sp" />

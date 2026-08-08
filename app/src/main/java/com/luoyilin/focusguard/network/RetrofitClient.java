@@ -5,6 +5,8 @@ import android.content.Context;
 import com.luoyilin.focusguard.auth.AuthInterceptor;
 import com.luoyilin.focusguard.auth.SessionManager;
 
+import java.util.concurrent.TimeUnit;
+
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -45,8 +47,13 @@ public final class RetrofitClient {
 
         OkHttpClient okHttpClient =
                 new OkHttpClient.Builder()
+                        .connectTimeout(10, TimeUnit.SECONDS)
+                        .writeTimeout(15, TimeUnit.SECONDS)
+                        .readTimeout(45, TimeUnit.SECONDS)
+                        .callTimeout(60, TimeUnit.SECONDS)
                         .addInterceptor(authInterceptor)
                         .build();
+        // 邮件发送可能超过默认的十秒读取时间，适当延长等待时间，避免邮件已发送却误报超时
         // 创建 OkHttpClient，并安装 JWT 拦截器
 
         Retrofit retrofit = new Retrofit.Builder()
