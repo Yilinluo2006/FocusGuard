@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.luoyilin.focusguard.network.AppLimitRequest;
 import com.luoyilin.focusguard.network.AppLimitResponse;
+import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RetrofitClient;
 
 import java.util.ArrayList;
@@ -179,10 +180,11 @@ public class AppManageActivity extends AppCompatActivity {
                     ) {
                         Toast.makeText(
                                 AppManageActivity.this,
-                                "连接后端失败："
-                                        + getErrorMessage(throwable),
+                                "读取限制失败："
+                                        + NetworkErrorHelper.getMessage(throwable),
                                 Toast.LENGTH_LONG
                         ).show();
+                        // 将底层网络异常转换为用户容易理解的提示
                     }
                 });
         // enqueue 会异步发送请求，不会阻塞界面
@@ -261,10 +263,11 @@ public class AppManageActivity extends AppCompatActivity {
                 ) {
                     Toast.makeText(
                             AppManageActivity.this,
-                            "网络错误："
-                                    + getErrorMessage(throwable),
+                            "保存限制失败："
+                                    + NetworkErrorHelper.getMessage(throwable),
                             Toast.LENGTH_LONG
                     ).show();
+                    // 将新增或修改请求的网络异常转换为中文提示
                 }
             });
         }
@@ -379,10 +382,11 @@ public class AppManageActivity extends AppCompatActivity {
                     ) {
                         Toast.makeText(
                                 AppManageActivity.this,
-                                "删除请求失败："
-                                        + getErrorMessage(throwable),
+                                "删除限制失败："
+                                        + NetworkErrorHelper.getMessage(throwable),
                                 Toast.LENGTH_LONG
                         ).show();
+                        // 将删除请求的网络异常转换为中文提示
                     }
                 });
         // 向后端发送 DELETE 请求
@@ -609,13 +613,4 @@ public class AppManageActivity extends AppCompatActivity {
         return count;
     }
 
-    private String getErrorMessage(Throwable throwable) {
-        if (throwable == null
-                || throwable.getMessage() == null) {
-            return "未知错误";
-        }
-
-        return throwable.getMessage();
-        // 避免错误信息为 null
-    }
 }

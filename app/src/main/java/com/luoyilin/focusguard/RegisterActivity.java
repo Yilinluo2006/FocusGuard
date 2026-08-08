@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RegisterRequest;
 import com.luoyilin.focusguard.network.RegisterResponse;
 import com.luoyilin.focusguard.network.RetrofitClient;
@@ -184,10 +185,10 @@ public class RegisterActivity extends AppCompatActivity {
 
                         Toast.makeText(
                                 RegisterActivity.this,
-                                "无法连接后端：" + throwable.getMessage(),
+                                NetworkErrorHelper.getMessage(throwable),
                                 Toast.LENGTH_LONG
                         ).show();
-                        // 提示断网、IP 错误或后端未运行等问题
+                        // 把技术异常转换成用户容易理解的网络提示
                     }
                 });
         // enqueue 异步发送请求，不会阻塞 Android 主界面

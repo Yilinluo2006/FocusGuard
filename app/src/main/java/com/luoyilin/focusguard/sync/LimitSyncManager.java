@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.luoyilin.focusguard.network.AppLimitResponse;
+import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RetrofitClient;
 
 import java.util.HashSet;
@@ -87,13 +88,11 @@ public final class LimitSyncManager {
                             Call<List<AppLimitResponse>> call,
                             Throwable throwable
                     ) {
-                        String message = throwable.getMessage();
-
-                        if (message == null) {
-                            message = "未知网络错误";
-                        }
-
-                        notifyFailure(callback, message);
+                        notifyFailure(
+                                callback,
+                                NetworkErrorHelper.getMessage(throwable)
+                        );
+                        // 把底层异常转换成用户能看懂的网络提示
                         // 网络失败时保留最后一次成功同步的本地缓存
                     }
                 });

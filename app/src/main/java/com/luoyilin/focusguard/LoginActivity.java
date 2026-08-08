@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.luoyilin.focusguard.auth.SessionManager;
 import com.luoyilin.focusguard.network.LoginRequest;
 import com.luoyilin.focusguard.network.LoginResponse;
+import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RetrofitClient;
 
 import retrofit2.Call;
@@ -174,10 +175,10 @@ public class LoginActivity extends AppCompatActivity {
 
                         Toast.makeText(
                                 LoginActivity.this,
-                                "无法连接后端：" + throwable.getMessage(),
+                                NetworkErrorHelper.getMessage(throwable),
                                 Toast.LENGTH_LONG
                         ).show();
-                        // 显示断网、后端未运行等连接错误
+                        // 把技术异常转换成用户容易理解的网络提示
                     }
                 });
         // enqueue 表示异步发送请求，不会阻塞页面
