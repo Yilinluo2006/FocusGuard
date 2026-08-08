@@ -24,6 +24,18 @@ public interface FocusGuardApi {
     );
     // POST：把邮箱和密码发送给后端登录接口，并接收 JWT
 
+    @POST("api/auth/password-reset/request")
+    Call<PasswordResetResponse> requestPasswordResetCode(
+            @Body PasswordResetCodeRequest request
+    );
+    // POST：请求后端向注册邮箱发送六位密码重置验证码
+
+    @POST("api/auth/password-reset/confirm")
+    Call<PasswordResetResponse> confirmPasswordReset(
+            @Body PasswordResetConfirmRequest request
+    );
+    // POST：提交邮箱、验证码和新密码，完成密码重置
+
     @GET("api/limits")
     Call<List<AppLimitResponse>> getAppLimits();
     // GET：查询当前登录用户的全部应用限制

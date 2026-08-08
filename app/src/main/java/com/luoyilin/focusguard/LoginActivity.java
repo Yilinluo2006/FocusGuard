@@ -34,7 +34,10 @@ public class LoginActivity extends AppCompatActivity {
     // 登录按钮
 
     private Button btnGoRegister;
-// 打开注册页面的按钮
+    // 打开注册页面的按钮
+
+    private Button btnForgotPassword;
+    // 打开忘记密码页面的按钮
 
     private ProgressBar progressLogin;
     // 登录请求进行时显示的加载图标
@@ -55,8 +58,9 @@ public class LoginActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnGoRegister = findViewById(R.id.btnGoRegister);
+        btnForgotPassword = findViewById(R.id.btnForgotPassword);
         progressLogin = findViewById(R.id.progressLogin);
-        // 根据 XML 中的 ID 获取登录按钮、注册入口和加载图标
+        // 根据 XML 中的 ID 获取输入框、按钮和加载图标
 
         btnLogin.setOnClickListener(view -> login());
         // 点击登录按钮时执行 login 方法
@@ -69,6 +73,23 @@ public class LoginActivity extends AppCompatActivity {
             startActivity(intent);
         });
         // 点击“立即注册”后打开 RegisterActivity
+
+        btnForgotPassword.setOnClickListener(view -> {
+            Intent intent = new Intent(
+                    LoginActivity.this,
+                    ForgotPasswordActivity.class
+            );
+            // 创建从登录页前往忘记密码页面的 Intent
+
+            intent.putExtra(
+                    ForgotPasswordActivity.EXTRA_EMAIL,
+                    etEmail.getText().toString().trim()
+            );
+            // 把当前已经输入的邮箱传给忘记密码页面
+
+            startActivity(intent);
+            // 打开忘记密码页面
+        });
     }
 
     private void login() {
@@ -195,5 +216,8 @@ public class LoginActivity extends AppCompatActivity {
 
         btnGoRegister.setEnabled(!loading);
         // 登录请求进行时暂时禁止跳转注册页面
+
+        btnForgotPassword.setEnabled(!loading);
+        // 登录请求进行时暂时禁止跳转忘记密码页面
     }
 }
