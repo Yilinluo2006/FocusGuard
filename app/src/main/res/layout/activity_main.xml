@@ -29,6 +29,18 @@
             android:textColor="#6B7280"
             android:textSize="15sp" />
 
+        <TextView
+            android:id="@+id/tvCurrentAccount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="当前账号"
+            android:textColor="#4B5563"
+            android:textSize="14sp" />
+        <!-- 显示当前登录账号，邮箱过长时在末尾省略 -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

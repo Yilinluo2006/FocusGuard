@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -45,6 +46,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvTodayUsage;
     // 保存首页“今日使用时长”控件
 
+    private TextView tvCurrentAccount;
+    // 保存首页“当前账号”控件
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,18 +57,8 @@ public class MainActivity extends AppCompatActivity {
         // 创建登录状态管理对象
 
         if (!sessionManager.isLoggedIn()) {
-            Intent intent = new Intent(
-                    MainActivity.this,
-                    LoginActivity.class
-            );
-            // 创建跳转到登录页面的 Intent
-
-            startActivity(intent);
-            // 打开登录页面
-
-            finish();
-            // 关闭当前首页，防止按返回键绕过登录页面
-
+            openLoginAndClearTask();
+            // 未登录时进入登录页，并清空旧页面栈
             return;
             // 停止继续执行首页的初始化代码
         }
@@ -75,6 +69,12 @@ public class MainActivity extends AppCompatActivity {
 
         tvTodayUsage = findViewById(R.id.tvTodayUsage);
         // 找到显示今日使用时长的 TextView
+
+        tvCurrentAccount = findViewById(R.id.tvCurrentAccount);
+        // 找到显示当前账号的 TextView
+
+        showCurrentAccount(sessionManager);
+        // 优先显示邮箱；邮箱为空时显示用户名
 
         Button btnManageApps = findViewById(R.id.btnManageApps);
         // 找到应用限制管理按钮
@@ -101,25 +101,10 @@ public class MainActivity extends AppCompatActivity {
             // 打开权限引导页面
         });
 
-        btnLogout.setOnClickListener(v -> {
-            sessionManager.clearSession();
-            // 清除手机本地保存的 JWT、用户 ID、用户名和邮箱等登录信息
-
-            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-            // 创建从首页跳转到登录页面的 Intent
-
-            intent.setFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_CLEAR_TASK
-            );
-            // 清空原来的页面栈，防止按返回键重新进入首页
-
-            startActivity(intent);
-            // 打开登录页面
-
-            finish();
-            // 关闭当前首页
-        });
+        btnLogout.setOnClickListener(
+                v -> showLogoutConfirmation(sessionManager)
+        );
+        // 点击退出按钮时先显示确认弹窗，避免误操作
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -142,6 +127,14 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // 每次首页显示时都会执行，例如首次打开应用或从其他页面返回
 
+        SessionManager sessionManager = new SessionManager(this);
+
+        if (!sessionManager.isLoggedIn()) {
+            openLoginAndClearTask();
+            return;
+        }
+        // 登录状态失效后不再显示首页，也不继续请求后端
+
         updateTodayUsage();
         // 先使用当前本地缓存更新页面，避免等待网络时页面没有内容
 
@@ -151,6 +144,11 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onSuccess(int enabledCount) {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        // 页面已经关闭时不再更新控件或显示提示
+
                         updateTodayUsage();
                         // 同步完成后重新计算，因为受限制应用可能已经发生变化
 
@@ -164,6 +162,11 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onFailure(String message) {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        // 页面已经关闭时忽略迟到的失败回调
+
                         Toast.makeText(
                                 MainActivity.this,
                                 "同步失败，继续使用本地配置：" + message,
@@ -174,6 +177,66 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
         // 异步请求后端，不会阻塞安卓界面
+    }
+
+    private void showCurrentAccount(SessionManager sessionManager) {
+        String email = sessionManager.getEmail();
+        String username = sessionManager.getUsername();
+        // 读取当前登录用户的邮箱和用户名
+
+        if (email != null && !email.trim().isEmpty()) {
+            tvCurrentAccount.setText("当前账号：" + email.trim());
+            return;
+        }
+        // 登录响应中有邮箱时优先显示邮箱
+
+        if (username != null && !username.trim().isEmpty()) {
+            tvCurrentAccount.setText("当前账号：" + username.trim());
+            return;
+        }
+        // 邮箱为空时使用用户名作为备用显示内容
+
+        tvCurrentAccount.setText("当前账号");
+        // 两项信息都为空时显示通用文字
+    }
+
+    private void showLogoutConfirmation(SessionManager sessionManager) {
+        new AlertDialog.Builder(this)
+                .setTitle("退出登录")
+                .setMessage("退出后将清除当前账号在本机保存的登录信息和应用限制缓存。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton(
+                        "退出",
+                        (dialog, which) -> performLogout(sessionManager)
+                )
+                .show();
+        // 用户确认后才真正退出，点击取消则保持当前登录状态
+    }
+
+    private void performLogout(SessionManager sessionManager) {
+        sessionManager.clearSession();
+        // 先清除 JWT 和用户信息，让正在执行的旧同步请求立即失效
+
+        LimitSyncManager.clearLocalCache(this);
+        // 清除当前账号留在手机上的应用限制缓存，避免下个账号短暂看到旧数据
+
+        openLoginAndClearTask();
+        // 打开登录页面并清空页面栈，防止返回键重新进入首页
+    }
+
+    private void openLoginAndClearTask() {
+        Intent intent = new Intent(this, LoginActivity.class);
+        // 创建跳转到登录页面的 Intent
+
+        intent.setFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK
+        );
+        // 清空原页面栈，使登录页面成为新的根页面
+
+        startActivity(intent);
+        finish();
+        // 打开登录页并关闭当前首页
     }
 
     private void updateTodayUsage() {

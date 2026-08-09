@@ -3,6 +3,7 @@ package com.luoyilin.focusguard.sync;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.luoyilin.focusguard.auth.SessionManager;
 import com.luoyilin.focusguard.network.AppLimitResponse;
 import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RetrofitClient;
@@ -50,6 +51,18 @@ public final class LimitSyncManager {
                 context.getApplicationContext();
         // 使用 ApplicationContext，避免长期持有 Activity 或 Service
 
+        SessionManager sessionManager =
+                new SessionManager(applicationContext);
+
+        if (!sessionManager.isLoggedIn()) {
+            notifyFailure(callback, "登录状态已失效");
+            return;
+        }
+        // 未登录时不向后端请求当前用户的限制数据
+
+        long requestUserId = sessionManager.getUserId();
+        // 记录发起请求时的用户，防止切换账号后写入旧账号数据
+
         RetrofitClient.getApi()
                 .getAppLimits()
                 .enqueue(new Callback<List<AppLimitResponse>>() {
@@ -59,6 +72,14 @@ public final class LimitSyncManager {
                             Call<List<AppLimitResponse>> call,
                             Response<List<AppLimitResponse>> response
                     ) {
+                        if (!isSameLoggedInUser(
+                                applicationContext,
+                                requestUserId
+                        )) {
+                            return;
+                        }
+                        // 用户已退出或切换账号时，丢弃旧请求的响应
+
                         if (!response.isSuccessful()
                                 || response.body() == null) {
 
@@ -88,6 +109,14 @@ public final class LimitSyncManager {
                             Call<List<AppLimitResponse>> call,
                             Throwable throwable
                     ) {
+                        if (!isSameLoggedInUser(
+                                applicationContext,
+                                requestUserId
+                        )) {
+                            return;
+                        }
+                        // 用户已退出或切换账号时，不再显示旧请求的错误提示
+
                         notifyFailure(
                                 callback,
                                 NetworkErrorHelper.getMessage(throwable)
@@ -97,6 +126,47 @@ public final class LimitSyncManager {
                     }
                 });
         // enqueue 表示异步请求，不会阻塞 Android 主线程
+    }
+
+    public static void clearLocalCache(Context context) {
+        SharedPreferences preferences =
+                context.getApplicationContext()
+                        .getSharedPreferences(
+                                PREF_NAME,
+                                Context.MODE_PRIVATE
+                        );
+        // 打开保存应用限制数据的本地配置文件
+
+        Set<String> oldPackages =
+                preferences.getStringSet(
+                        KEY_SELECTED_PACKAGES,
+                        new HashSet<>()
+                );
+        // 读取当前账号缓存过的受限应用包名
+
+        SharedPreferences.Editor editor = preferences.edit();
+
+        if (oldPackages != null) {
+            for (String packageName : oldPackages) {
+                editor.remove(KEY_LIMIT_PREFIX + packageName);
+            }
+        }
+        // 删除每个受限应用对应的本地限制时间
+
+        editor.remove(KEY_SELECTED_PACKAGES);
+        editor.apply();
+        // 删除受限应用集合并异步保存修改
+    }
+
+    private static boolean isSameLoggedInUser(
+            Context context,
+            long requestUserId
+    ) {
+        SessionManager currentSession = new SessionManager(context);
+
+        return currentSession.isLoggedIn()
+                && currentSession.getUserId() == requestUserId;
+        // 只有登录仍有效且用户 ID 未改变时，才允许处理同步结果
     }
 
     private static int saveToLocalCache(
