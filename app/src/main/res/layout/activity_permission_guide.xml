@@ -1,80 +1,144 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FocusGuard 核心权限与服务引导页面 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F6F8FA"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="64dp"
-        android:text="权限与服务设置"
-        android:textColor="#111827"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tvPermissionStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="正在检查使用情况访问..."
-        android:textColor="#6B7280"
-        android:textSize="17sp"
-        android:textStyle="bold" />
-
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center"
-        android:lineSpacingExtra="5dp"
-        android:text="此权限用于统计每个应用的每日使用时长，并判断是否达到限制。"
-        android:textColor="#4B5563"
-        android:textSize="15sp" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/btnOpenUsageSettings"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="20dp"
-        android:backgroundTint="#2563EB"
-        android:text="开启使用情况访问"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="保护状态中心"
+            android:textColor="#111827"
+            android:textSize="28sp"
+            android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/tvAccessibilityStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="正在检查强制限制服务..."
-        android:textColor="#6B7280"
-        android:textSize="17sp"
-        android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="保持关键权限与后台保护正常，限制功能才能稳定运行。"
+            android:textColor="#6B7280"
+            android:textSize="15sp" />
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center"
-        android:lineSpacingExtra="5dp"
-        android:text="此服务用于识别当前应用，并在达到限额后执行强制退出。"
-        android:textColor="#4B5563"
-        android:textSize="15sp" />
+        <TextView
+            android:id="@+id/tvPermissionStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="正在检查使用情况访问..."
+            android:textColor="#111827"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/btnOpenAccessibilitySettings"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="20dp"
-        android:backgroundTint="#111827"
-        android:text="开启强制限制服务"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="用于读取各应用的每日使用时长，并判断是否达到限制。"
+            android:textColor="#6B7280"
+            android:textSize="14sp" />
 
-</LinearLayout>
+        <Button
+            android:id="@+id/btnOpenUsageSettings"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#2563EB"
+            android:text="去开启"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvAccessibilityStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="正在检查强制限制服务..."
+            android:textColor="#111827"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="用于识别当前应用，并在达到限额后执行强制退出。"
+            android:textColor="#6B7280"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnOpenAccessibilitySettings"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#2563EB"
+            android:text="去开启"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvProtectionStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="正在检查后台保护服务..."
+            android:textColor="#111827"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="用于在主界面退出后继续维持限制配置与服务状态。"
+            android:textColor="#6B7280"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnStartProtectionService"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#2563EB"
+            android:text="启动服务"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvBatteryStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="正在检查电池优化设置..."
+            android:textColor="#111827"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="放行电池优化可降低系统休眠或清理后台服务的概率。"
+            android:textColor="#6B7280"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnOpenBatterySettings"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="24dp"
+            android:backgroundTint="#2563EB"
+            android:text="去设置"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+</ScrollView>

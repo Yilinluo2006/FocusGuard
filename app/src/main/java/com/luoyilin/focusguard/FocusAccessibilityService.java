@@ -4,22 +4,29 @@ import android.accessibilityservice.AccessibilityService;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
+import android.content.ComponentName;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.os.SystemClock;
+import android.view.View;
+import android.view.WindowManager;
+import android.view.LayoutInflater;
+import android.graphics.PixelFormat;
+import android.widget.TextView;
+import java.util.Properties;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
-
-import com.luoyilin.focusguard.sync.LimitSyncManager;
-// 导入刚刚创建的后端限制同步工具
 
 public class FocusAccessibilityService extends AccessibilityService {
 
@@ -31,8 +38,22 @@ public class FocusAccessibilityService extends AccessibilityService {
     private static final long CHECK_INTERVAL_MILLIS = 2000;
     // 每隔 2 秒检查一次当前应用是否超时，测试时反应更明显
 
+    private static final long HEALTH_INTERVAL_MILLIS = 10_000L;
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String currentPackageName;
+    private Properties latestLimits = new Properties();
+    private View blockingOverlay;
+    private RemainingTimeOverlay remainingTimeOverlay;
+    private boolean blockInProgress;
+    private final Runnable hideOverlayTask = () -> {
+        hideOverlay();
+        blockInProgress = false;
+        // A new launch during the transition must be checked, not silently exempted.
+        if (currentPackageName != null) {
+            checkCurrentAppUsage();
+        }
+    };
     // 保存当前正在前台的应用包名
 
     private final Runnable usageCheckTask = new Runnable() {
@@ -43,9 +64,25 @@ public class FocusAccessibilityService extends AccessibilityService {
         }
     };
 
+    private final Runnable serviceHealthTask = new Runnable() {
+        @Override
+        public void run() {
+            ProtectionStateStore.touchAccessibility(FocusAccessibilityService.this);
+            handler.postDelayed(this, HEALTH_INTERVAL_MILLIS);
+        }
+    };
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        if (remainingTimeOverlay == null) {
+            remainingTimeOverlay = new RemainingTimeOverlay(this);
+        }
+        ProtectionStateStore.markAccessibilityConnected(this, "accessibility_connected");
+        handler.removeCallbacks(serviceHealthTask);
+        handler.post(serviceHealthTask);
+        ProtectionService.start(this);
+        // 前台服务与无障碍服务共用 :guard 进程，保护的正是执行限制的进程。
 
         Toast.makeText(
                 this,
@@ -53,36 +90,44 @@ public class FocusAccessibilityService extends AccessibilityService {
                 Toast.LENGTH_SHORT
         ).show();
         // 无障碍服务启动成功时显示提示
+    }
 
-        LimitSyncManager.syncFromServer(
-                this,
-                new LimitSyncManager.SyncCallback() {
+    public static boolean isRunning(Context context) {
+        return ProtectionStateStore.isAccessibilityHealthy(context);
+    }
+    // 返回无障碍服务是否已经被系统真实绑定并运行
 
-                    @Override
-                    public void onSuccess(int enabledCount) {
-                        Toast.makeText(
-                                FocusAccessibilityService.this,
-                                "已从后端同步 "
-                                        + enabledCount
-                                        + " 个限制",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
-                    // 同步成功后显示已启用的限制数量
-
-                    @Override
-                    public void onFailure(String message) {
-                        Toast.makeText(
-                                FocusAccessibilityService.this,
-                                "后端同步失败，继续使用本地配置："
-                                        + message,
-                                Toast.LENGTH_LONG
-                        ).show();
-                    }
-                    // 同步失败时不清空缓存，继续使用上一次配置
-                }
+    public static boolean isEnabled(Context context) {
+        String enabledServices = Settings.Secure.getString(
+                context.getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         );
-        // 无障碍服务启动时异步获取后端限制
+
+        if (TextUtils.isEmpty(enabledServices)) {
+            return false;
+        }
+
+        ComponentName componentName = new ComponentName(
+                context,
+                FocusAccessibilityService.class
+        );
+
+        TextUtils.SimpleStringSplitter splitter =
+                new TextUtils.SimpleStringSplitter(':');
+        splitter.setString(enabledServices);
+
+        while (splitter.hasNext()) {
+            String enabledService = splitter.next();
+            ComponentName enabledComponent =
+                    ComponentName.unflattenFromString(enabledService);
+
+            if (componentName.equals(enabledComponent)
+                    || componentName.flattenToString().equalsIgnoreCase(enabledService)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -101,6 +146,11 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 获取当前前台窗口所属应用的包名
 
         if (packageName.equals(getPackageName())) {
+            // Our overlay may also emit window events; only app activities stop tracking.
+            CharSequence className = event.getClassName();
+            if (className != null && className.toString().startsWith(getPackageName() + ".")) {
+                stopMonitoring();
+            }
             return;
         }
         // FocusGuard 自己不限制自己，否则会把阻断页面也拦掉
@@ -113,48 +163,69 @@ public class FocusAccessibilityService extends AccessibilityService {
 
         currentPackageName = packageName;
         handler.removeCallbacks(usageCheckTask);
-        handler.post(usageCheckTask);
+        if (blockInProgress) {
+            Log.d("FocusAccessibility", "Coalesced window event for " + packageName);
+            return;
+        }
+        checkCurrentAppUsage();
         // 当前应用是受限应用，立刻开始检查使用时长
     }
 
     private void checkCurrentAppUsage() {
+        long started = SystemClock.elapsedRealtime();
         String packageName = currentPackageName;
 
-        if (packageName == null || !isLimitedPackage(packageName)) {
+        int limitMinutes = packageName == null ? 0 : getLimitMinutes(packageName);
+        if (limitMinutes <= 0) {
             stopMonitoring();
             return;
         }
         // 当前没有监控对象，或者应用已取消限制时，停止检查
 
-        int limitMinutes = getLimitMinutes(packageName);
         long limitMillis = limitMinutes * 60L * 1000L;
         // 把限制分钟数转换成毫秒
 
         long todayUsageMillis = getTodayUsageMillis(packageName);
+        Log.d("FocusAccessibility", "Checking " + packageName + " usageMs="
+                + todayUsageMillis + " limitMinutes=" + limitMinutes);
         // 读取这个应用今天的实际前台使用时长
 
         if (todayUsageMillis >= limitMillis) {
             blockCurrentApp(packageName);
+            Log.i("FocusAccessibility", "Blocked " + packageName + " decisionMs="
+                    + (SystemClock.elapsedRealtime() - started));
             return;
         }
         // 如果今日使用时长已经达到限制，就执行强制阻断
 
-        handler.postDelayed(usageCheckTask, CHECK_INTERVAL_MILLIS);
+        if (remainingTimeOverlay != null) {
+            remainingTimeOverlay.show(limitMillis - todayUsageMillis);
+        }
+        handler.removeCallbacks(usageCheckTask);
+        handler.postDelayed(usageCheckTask,
+                Math.min(CHECK_INTERVAL_MILLIS, limitMillis - todayUsageMillis));
         // 还没超时就继续定时检查
     }
 
     private void blockCurrentApp(String packageName) {
+        if (blockInProgress) {
+            return;
+        }
+        blockInProgress = true;
         String appName = getAppName(packageName);
         // 根据包名获取应用名称，用于阻断页面展示
 
         stopMonitoring();
         // 清理当前监控任务，避免重复触发
 
-        performGlobalAction(GLOBAL_ACTION_HOME);
+        showOverlay(appName);
+        boolean sent = performGlobalAction(GLOBAL_ACTION_HOME);
+        Log.i("FocusAccessibility", "HOME accepted=" + sent);
         // 通过无障碍服务执行系统“返回桌面”操作
 
-        handler.postDelayed(() -> openBlockedPage(appName), 300);
-        // 稍等系统回到桌面后，再打开 FocusGuard 的阻断提示页面
+        handler.removeCallbacks(hideOverlayTask);
+        handler.postDelayed(hideOverlayTask, 800);
+        // Keep the transition covered; do not send HOME again for queued window events.
     }
 
     private void openBlockedPage(String appName) {
@@ -169,28 +240,44 @@ public class FocusAccessibilityService extends AccessibilityService {
     }
 
     private boolean isLimitedPackage(String packageName) {
-        SharedPreferences preferences =
-                getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-
-        Set<String> savedPackages = preferences.getStringSet(
-                KEY_SELECTED_PACKAGES,
-                new HashSet<>()
-        );
-        // 读取用户已经选择限制的应用包名集合
-
-        return savedPackages != null && savedPackages.contains(packageName);
+        return getLimitMinutes(packageName) > 0;
         // 判断当前应用是否属于受限应用
     }
 
     private int getLimitMinutes(String packageName) {
-        SharedPreferences preferences =
-                getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-
-        return preferences.getInt(
-                KEY_LIMIT_PREFIX + packageName,
-                30
-        );
+        try {
+            latestLimits = LimitSnapshot.read(this);
+        } catch (java.io.IOException exception) {
+            Log.e("FocusAccessibility", "Cannot read current limit configuration", exception);
+        }
+        try { return Integer.parseInt(latestLimits.getProperty(packageName, "0")); }
+        catch (NumberFormatException ignored) { return 0; }
         // 读取当前应用的限制分钟数，默认是 30 分钟
+    }
+
+    private void showOverlay(String appName) {
+        try {
+            if (blockingOverlay == null) {
+                blockingOverlay = LayoutInflater.from(this).inflate(R.layout.activity_blocked, null);
+                WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                        -1, -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.OPAQUE);
+                getSystemService(WindowManager.class).addView(blockingOverlay, params);
+            }
+            ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage))
+                    .setText(appName + " 今日使用时间已达到限制");
+        } catch (RuntimeException error) {
+            Log.e("FocusAccessibility", "Cannot display blocking overlay", error);
+            hideOverlay();
+        }
+    }
+
+    private void hideOverlay() {
+        if (blockingOverlay != null) {
+            try { getSystemService(WindowManager.class).removeViewImmediate(blockingOverlay); }
+            catch (RuntimeException ignored) { }
+            blockingOverlay = null;
+        }
     }
 
     private long getTodayUsageMillis(String targetPackageName) {
@@ -298,6 +385,9 @@ public class FocusAccessibilityService extends AccessibilityService {
     }
 
     private void stopMonitoring() {
+        if (remainingTimeOverlay != null) {
+            remainingTimeOverlay.hide();
+        }
         currentPackageName = null;
         handler.removeCallbacks(usageCheckTask);
         // 停止当前定时检查任务
@@ -305,12 +395,30 @@ public class FocusAccessibilityService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
-        stopMonitoring();
-        // 无障碍服务被系统中断时停止检查
+        ProtectionStateStore.markAccessibilityConnected(this, "accessibility_interrupted");
+        Log.i("FocusAccessibility", "Accessibility feedback interrupted");
+        // onInterrupt 可能在服务仍保持绑定时多次调用，不能把它当作服务故障。
     }
 
     @Override
+    public boolean onUnbind(Intent intent) {
+        blockInProgress = false;
+        handler.removeCallbacks(hideOverlayTask);
+        hideOverlay();
+        handler.removeCallbacks(serviceHealthTask);
+        ProtectionStateStore.markAccessibilityDisconnected(this, "accessibility_unbound");
+        stopMonitoring();
+        return super.onUnbind(intent);
+    }
+    // 系统解除绑定时立即更新运行状态
+
+    @Override
     public void onDestroy() {
+        blockInProgress = false;
+        handler.removeCallbacks(hideOverlayTask);
+        hideOverlay();
+        handler.removeCallbacks(serviceHealthTask);
+        ProtectionStateStore.markAccessibilityDisconnected(this, "accessibility_destroyed");
         stopMonitoring();
         super.onDestroy();
         // 服务销毁时清理任务，避免内存泄漏

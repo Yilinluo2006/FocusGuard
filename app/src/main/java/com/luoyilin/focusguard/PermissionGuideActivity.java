@@ -5,8 +5,10 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.os.Process;
 import android.provider.Settings;
 import android.view.accessibility.AccessibilityManager;
@@ -18,158 +20,235 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.List;
 
 public class PermissionGuideActivity extends AppCompatActivity {
+
     private TextView tvPermissionStatus;
     private TextView tvAccessibilityStatus;
+    private TextView tvProtectionStatus;
+    private TextView tvBatteryStatus;
+
     private Button btnOpenUsageSettings;
     private Button btnOpenAccessibilitySettings;
-    // 保存两项权限的状态文字和设置按钮
+    private Button btnStartProtectionService;
+    private Button btnOpenBatterySettings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_permission_guide);
-        // 加载权限引导页面
+        // 加载保护状态中心页面。
 
         tvPermissionStatus = findViewById(R.id.tvPermissionStatus);
         tvAccessibilityStatus = findViewById(R.id.tvAccessibilityStatus);
-        // 找到两项权限的状态文字
+        tvProtectionStatus = findViewById(R.id.tvProtectionStatus);
+        tvBatteryStatus = findViewById(R.id.tvBatteryStatus);
+        // 找到四项保护状态对应的文字控件。
 
         btnOpenUsageSettings = findViewById(R.id.btnOpenUsageSettings);
-        btnOpenAccessibilitySettings =
-                findViewById(R.id.btnOpenAccessibilitySettings);
-        // 找到两个系统设置按钮
+        btnOpenAccessibilitySettings = findViewById(R.id.btnOpenAccessibilitySettings);
+        btnStartProtectionService = findViewById(R.id.btnStartProtectionService);
+        btnOpenBatterySettings = findViewById(R.id.btnOpenBatterySettings);
+        // 找到四项保护设置对应的操作按钮。
 
         btnOpenUsageSettings.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-            // 创建打开使用情况访问设置页的 Intent
-
             startActivity(intent);
-            // 跳转到使用情况访问设置
+            // 打开系统的“使用情况访问”设置页面。
         });
 
         btnOpenAccessibilitySettings.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            // 创建打开无障碍设置页的 Intent
-
             startActivity(intent);
-            // 跳转到无障碍设置，让用户手动开启 FocusGuard
+            // 打开无障碍设置，让用户开启 FocusGuard 服务。
+        });
+
+        btnStartProtectionService.setOnClickListener(v -> {
+            startProtectionService();
+            updatePermissionStatus();
+            // 手动启动后台保护服务，并立即刷新页面状态。
+        });
+
+        btnOpenBatterySettings.setOnClickListener(v -> {
+            openBatteryOptimizationSettings();
         });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
+        if (isAccessibilityServiceEnabled()) {
+            ProtectionService.start(this);
+        }
         updatePermissionStatus();
-        // 页面出现或从系统设置返回时，重新检查两项权限
+        tvProtectionStatus.postDelayed(this::updatePermissionStatus, 800L);
+        // 页面首次出现或从系统设置返回时，重新检查全部保护状态。
     }
 
     private void updatePermissionStatus() {
-        boolean usageAccessGranted = hasUsageAccessPermission();
-        // 检查使用情况访问权限
+        updateStatus(
+                tvPermissionStatus,
+                btnOpenUsageSettings,
+                hasUsageAccessPermission(),
+                "使用情况访问：已开启",
+                "使用情况访问：未开启",
+                "查看设置",
+                "去开启"
+        );
 
-        if (usageAccessGranted) {
-            tvPermissionStatus.setText("使用情况访问：已开启");
-            tvPermissionStatus.setTextColor(Color.parseColor("#16A34A"));
-            btnOpenUsageSettings.setText("查看使用情况设置");
-        } else {
-            tvPermissionStatus.setText("使用情况访问：未开启");
-            tvPermissionStatus.setTextColor(Color.parseColor("#DC2626"));
-            btnOpenUsageSettings.setText("开启使用情况访问");
-        }
-        // 根据权限状态更新文字、颜色和按钮内容
+        updateAccessibilityStatus();
 
-        boolean accessibilityEnabled = isAccessibilityServiceEnabled();
-        // 检查 FocusGuard 无障碍服务
+        updateStatus(
+                tvProtectionStatus,
+                btnStartProtectionService,
+                ProtectionService.isRunning(this),
+                "后台保护服务：运行中",
+                "后台保护服务：未运行",
+                "重新启动",
+                "启动服务"
+        );
 
-        if (accessibilityEnabled) {
-            tvAccessibilityStatus.setText("强制限制服务：已开启");
-            tvAccessibilityStatus.setTextColor(Color.parseColor("#16A34A"));
-            btnOpenAccessibilitySettings.setText("查看无障碍设置");
+        updateStatus(
+                tvBatteryStatus,
+                btnOpenBatterySettings,
+                isIgnoringBatteryOptimizations(),
+                "电池优化限制：已放行",
+                "电池优化限制：可能影响后台运行",
+                "查看设置",
+                "去设置"
+        );
+    }
+
+    private void updateStatus(
+            TextView statusView,
+            Button actionButton,
+            boolean enabled,
+            String enabledText,
+            String disabledText,
+            String enabledButtonText,
+            String disabledButtonText
+    ) {
+        statusView.setText(enabled ? enabledText : disabledText);
+        statusView.setTextColor(Color.parseColor(enabled ? "#15803D" : "#B91C1C"));
+        actionButton.setText(enabled ? enabledButtonText : disabledButtonText);
+        // 根据真实状态统一更新文字、颜色和按钮提示。
+    }
+
+    private void updateAccessibilityStatus() {
+        boolean enabled = isAccessibilityServiceEnabled();
+        boolean healthy = enabled && FocusAccessibilityService.isRunning(this);
+
+        if (healthy) {
+            tvAccessibilityStatus.setText("强制限制服务：运行中");
+            tvAccessibilityStatus.setTextColor(Color.parseColor("#15803D"));
+            btnOpenAccessibilitySettings.setText("查看设置");
+        } else if (enabled) {
+            tvAccessibilityStatus.setText("强制限制服务：已授权，正在连接");
+            tvAccessibilityStatus.setTextColor(Color.parseColor("#B45309"));
+            btnOpenAccessibilitySettings.setText("检查设置");
         } else {
             tvAccessibilityStatus.setText("强制限制服务：未开启");
-            tvAccessibilityStatus.setTextColor(Color.parseColor("#DC2626"));
-            btnOpenAccessibilitySettings.setText("开启强制限制服务");
+            tvAccessibilityStatus.setTextColor(Color.parseColor("#B91C1C"));
+            btnOpenAccessibilitySettings.setText("去开启");
         }
-        // 根据无障碍服务状态更新文字、颜色和按钮内容
+    }
+
+    private void startProtectionService() {
+        ProtectionService.start(this);
+        tvProtectionStatus.postDelayed(this::updatePermissionStatus, 800L);
+    }
+
+    private void openBatteryOptimizationSettings() {
+        Intent intent;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                && !isIgnoringBatteryOptimizations()) {
+            intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+        } else {
+            intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+        }
+
+        try {
+            startActivity(intent);
+        } catch (RuntimeException exception) {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:" + getPackageName())));
+        }
+    }
+
+    private boolean isIgnoringBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return true;
+        }
+
+        PowerManager powerManager =
+                (PowerManager) getSystemService(Context.POWER_SERVICE);
+
+        return powerManager != null
+                && powerManager.isIgnoringBatteryOptimizations(getPackageName());
+        // 判断 FocusGuard 是否已被系统电池优化策略放行。
     }
 
     private boolean hasUsageAccessPermission() {
         AppOpsManager appOpsManager =
                 (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-        // 获取特殊权限管理服务
 
         if (appOpsManager == null) {
             return false;
         }
-        // 无法获得系统服务时认为权限未开启
 
         int mode;
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mode = appOpsManager.unsafeCheckOpNoThrow(
                     AppOpsManager.OPSTR_GET_USAGE_STATS,
                     Process.myUid(),
                     getPackageName()
             );
-            // Android 10 及以上使用新的检查方法
         } else {
             mode = appOpsManager.checkOpNoThrow(
                     AppOpsManager.OPSTR_GET_USAGE_STATS,
                     Process.myUid(),
                     getPackageName()
             );
-            // Android 10 以下使用兼容检查方法
         }
 
         return mode == AppOpsManager.MODE_ALLOWED;
-        // MODE_ALLOWED 表示使用情况访问权限已开启
+        // AppOpsManager 会返回当前应用是否获准读取使用情况数据。
     }
 
     private boolean isAccessibilityServiceEnabled() {
         AccessibilityManager accessibilityManager =
-                (AccessibilityManager) getSystemService(
-                        Context.ACCESSIBILITY_SERVICE
-                );
-        // 获取系统无障碍服务管理器
+                (AccessibilityManager) getSystemService(Context.ACCESSIBILITY_SERVICE);
 
-        if (accessibilityManager == null
-                || !accessibilityManager.isEnabled()) {
+        if (accessibilityManager == null) {
             return false;
         }
-        // 系统无障碍功能整体未启用时直接返回 false
 
         List<AccessibilityServiceInfo> enabledServices =
                 accessibilityManager.getEnabledAccessibilityServiceList(
                         AccessibilityServiceInfo.FEEDBACK_ALL_MASK
                 );
-        // 获取当前手机已经启用的所有无障碍服务
 
-        String targetServiceName =
-                FocusAccessibilityService.class.getName();
-        // 获取 FocusGuard 无障碍服务的完整类名
+        String packageName = getPackageName();
+        String serviceClassName = FocusAccessibilityService.class.getName();
 
         for (AccessibilityServiceInfo serviceInfo : enabledServices) {
             if (serviceInfo.getResolveInfo() == null
                     || serviceInfo.getResolveInfo().serviceInfo == null) {
                 continue;
             }
-            // 跳过缺少服务信息的无效记录
 
-            String packageName =
+            String enabledPackage =
                     serviceInfo.getResolveInfo().serviceInfo.packageName;
-            String serviceName =
+            String enabledClass =
                     serviceInfo.getResolveInfo().serviceInfo.name;
-            // 读取当前已启用服务的包名和类名
 
-            if (getPackageName().equals(packageName)
-                    && targetServiceName.equals(serviceName)) {
+            if (packageName.equals(enabledPackage)
+                    && serviceClassName.equals(enabledClass)) {
                 return true;
             }
-            // 包名和类名都匹配时，说明 FocusGuard 服务已开启
         }
 
         return false;
-        // 遍历后仍未找到，说明服务没有开启
+        // 在系统已开启的无障碍服务中寻找 FocusGuard 服务。
     }
 }

@@ -1,6 +1,7 @@
 package com.luoyilin.focusguard.network;
 
 import android.content.Context;
+import com.luoyilin.focusguard.BuildConfig;
 
 import com.luoyilin.focusguard.auth.AuthInterceptor;
 import com.luoyilin.focusguard.auth.SessionManager;
@@ -14,7 +15,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public final class RetrofitClient {
 
     private static final String BASE_URL =
-            "http://192.168.10.21:8080/";
+            BuildConfig.API_BASE_URL;
     // 后端地址，必须以 / 结尾
 
     private static FocusGuardApi focusGuardApi;

@@ -17,6 +17,22 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public final class LimitSyncManager {
+    private static long localRevision;
+    public static void markPending(Context context) {
+        localRevision++;
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .putBoolean("pending_limit_changes", true).apply();
+    }
+
+    public static boolean hasPending(Context context) {
+        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getBoolean("pending_limit_changes", false);
+    }
+
+    public static void markSynced(Context context) {
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .remove("pending_limit_changes").apply();
+    }
 
     private static final String PREF_NAME = "focus_guard_prefs";
     // 必须与 AppManageActivity 和 FocusAccessibilityService 保持一致
@@ -61,6 +77,11 @@ public final class LimitSyncManager {
         // 未登录时不向后端请求当前用户的限制数据
 
         long requestUserId = sessionManager.getUserId();
+        final long requestRevision = localRevision;
+        if (hasPending(context)) {
+            notifyFailure(callback, "本地修改尚未上传，请在应用管理页重试保存");
+            return;
+        }
         // 记录发起请求时的用户，防止切换账号后写入旧账号数据
 
         RetrofitClient.getApi()
@@ -92,6 +113,10 @@ public final class LimitSyncManager {
                         }
                         // 响应不成功或没有响应内容时，不修改旧缓存
 
+                        if (hasPending(applicationContext) || requestRevision != localRevision) {
+                            notifyFailure(callback, "已保留尚未上传的本地修改");
+                            return;
+                        }
                         int enabledCount = saveToLocalCache(
                                 applicationContext,
                                 response.body()
@@ -154,7 +179,9 @@ public final class LimitSyncManager {
         // 删除每个受限应用对应的本地限制时间
 
         editor.remove(KEY_SELECTED_PACKAGES);
+        editor.remove("pending_limit_changes");
         editor.apply();
+        com.luoyilin.focusguard.LimitSnapshot.publish(context);
         // 删除受限应用集合并异步保存修改
     }
 
@@ -239,6 +266,7 @@ public final class LimitSyncManager {
         editor.apply();
         // 异步保存，本地内存中的数据会立即更新
 
+        com.luoyilin.focusguard.LimitSnapshot.publish(context);
         return enabledPackages.size();
         // 返回本次成功缓存的启用记录数量
     }

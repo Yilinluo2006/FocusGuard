@@ -6,6 +6,11 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <queries>
         <intent>
@@ -26,6 +31,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FocusGuard"
         android:usesCleartextTraffic="true">
+        <provider
+            android:name=".LimitConfigProvider"
+            android:authorities="${applicationId}.limits"
+            android:exported="false" />
         <activity
             android:name=".EmailVerificationActivity"
             android:exported="false" />
@@ -50,9 +59,49 @@
             android:exported="false" />
 
         <service
+            android:name=".ProtectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":guard"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps user-enabled app limit protection active after the UI task is removed." />
+        </service>
+        <!-- 前台保护服务提高进程优先级，划掉最近任务后仍继续检查受限应用 -->
+
+        <service
+            android:name=".FocusWallpaperService"
+            android:label="FocusGuard Test Wallpaper"
+            android:exported="true"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:process=":guard"
+            android:stopWithTask="false">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data android:name="android.service.wallpaper"
+                android:resource="@xml/focus_wallpaper" />
+        </service>
+
+        <receiver
+            android:name=".ProtectionRestartReceiver"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":guard">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- 开机或应用更新后，如果无障碍权限仍开启，就恢复保护服务 -->
+
+        <service
             android:name=".FocusAccessibilityService"
             android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:process=":guard"
+            android:stopWithTask="false">
 
             <!-- 注册无障碍服务，只有系统可以绑定并启动它 -->
 

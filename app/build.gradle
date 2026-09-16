@@ -2,7 +2,14 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+def localConfig = new Properties()
+def localConfigFile = rootProject.file('local.properties')
+if (localConfigFile.exists()) {
+    localConfigFile.withInputStream { localConfig.load(it) }
+}
+
 android {
+    buildFeatures { buildConfig = true }
     namespace 'com.luoyilin.focusguard'
     compileSdk {
         version = release(36) {
@@ -11,6 +18,7 @@ android {
     }
 
     defaultConfig {
+        buildConfigField 'String', 'API_BASE_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('focusguardApiUrl').getOrElse(localConfig.getProperty('focusguard.apiUrl', 'http://192.168.10.21:8080/')))
         applicationId "com.luoyilin.focusguard"
         minSdk 26
         targetSdk 36

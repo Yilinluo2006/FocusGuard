@@ -1,6 +1,7 @@
 package com.luoyilin.focusguard;
 
-import android.app.usage.UsageStats;
+import android.app.usage.UsageEvents;
+import android.os.Build;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -23,6 +24,7 @@ import com.luoyilin.focusguard.network.AppLimitRequest;
 import com.luoyilin.focusguard.network.AppLimitResponse;
 import com.luoyilin.focusguard.network.NetworkErrorHelper;
 import com.luoyilin.focusguard.network.RetrofitClient;
+import com.luoyilin.focusguard.sync.LimitSyncManager;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -37,6 +39,10 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class AppManageActivity extends AppCompatActivity {
+    private boolean applyingRemote;
+    private boolean loaded;
+    private boolean saving;
+    private int editRevision;
 
     private static final String PREF_NAME = "focus_guard_prefs";
     // SharedPreferences 文件名
@@ -78,6 +84,11 @@ public class AppManageActivity extends AppCompatActivity {
             );
 
             saveSelectedApps(appList);
+            if (!applyingRemote) {
+                editRevision++;
+                LimitSyncManager.markPending(this);
+                if (loaded) saveLimitsToServer(appList);
+            }
             // 选择状态改变后保存到手机本地
         });
 
@@ -98,6 +109,10 @@ public class AppManageActivity extends AppCompatActivity {
         // 从 Spring Boot 后端读取已有的限制记录
 
         btnAddLimitedApp.setOnClickListener(view -> {
+            if (!loaded) {
+                loadLimitsFromServer(appList, adapter);
+                return;
+            }
             saveSelectedApps(appList);
             // 先保存到手机本地
 
@@ -132,6 +147,7 @@ public class AppManageActivity extends AppCompatActivity {
                         }
                         // 检查后端响应是否成功
 
+                        boolean keepLocal = LimitSyncManager.hasPending(AppManageActivity.this);
                         Map<String, AppLimitResponse> limitMap =
                                 new HashMap<>();
 
@@ -150,25 +166,25 @@ public class AppManageActivity extends AppCompatActivity {
                                     );
 
                             if (limit == null) {
+                                appInfo.setServerId(null);
+                                if (!keepLocal) appInfo.setSelected(false);
                                 continue;
                             }
-                            // 后端没有该应用记录时保留本地状态
+                            // 登录后以当前账号的后端记录为准，清除其他账号留下的本地状态
 
-                            appInfo.setServerId(limit.getId());
-                            // 保存数据库记录 ID
-
-                            appInfo.setSelected(limit.isEnabled());
-                            // 恢复后端的启用状态
-
-                            if (limit.isEnabled()) {
-                                appInfo.setLimitMinutes(
-                                        limit.getLimitMinutes()
-                                );
-                            }
-                            // 启用限制时恢复限制分钟数
+                            if (keepLocal) appInfo.setServerId(limit.getId());
+                            else applyServerLimit(appInfo, limit);
+                            // 同时恢复数据库 ID、启用状态和真实限制分钟数
                         }
 
+                        saveSelectedApps(appList);
+                        // 立即写入本地缓存，供首页和无障碍服务读取同一份限制时间
+
+                        applyingRemote = true;
                         adapter.refreshAppList();
+                        applyingRemote = false;
+                        loaded = true;
+                        if (keepLocal) saveLimitsToServer(appList);
                         // 重新排序并刷新应用列表
 
                     }
@@ -191,6 +207,14 @@ public class AppManageActivity extends AppCompatActivity {
     }
 
     private void saveLimitsToServer(List<AppInfo> appList) {
+        if (!loaded || saving) return;
+        saving = true;
+        final int revision = editRevision;
+        final int[] remaining = {0};
+        final boolean[] failed = {false};
+        for (AppInfo app : appList) {
+            if (app.isSelected() || app.getServerId() != null) remaining[0]++;
+        }
         int requestCount = 0;
         // 统计需要发送的请求数量
 
@@ -241,19 +265,22 @@ public class AppManageActivity extends AppCompatActivity {
                     if (response.isSuccessful()
                             && response.body() != null) {
 
-                        appInfo.setServerId(
-                                response.body().getId()
-                        );
-                        // 保存后端返回的数据库 ID
+                        appInfo.setServerId(response.body().getId());
+                        // 使用后端最终保存的状态覆盖当前应用对象
+
+                        saveSelectedApps(appList);
+                        finishSave(appList, revision, remaining, failed);
                         return;
                     }
 
                     Toast.makeText(
                             AppManageActivity.this,
-                            "同步失败，状态码："
+                            "同步失败，本地修改已保留，状态码："
                                     + response.code(),
                             Toast.LENGTH_LONG
                     ).show();
+                    failed[0] = true;
+                    finishSave(appList, revision, remaining, failed);
                 }
 
                 @Override
@@ -263,16 +290,19 @@ public class AppManageActivity extends AppCompatActivity {
                 ) {
                     Toast.makeText(
                             AppManageActivity.this,
-                            "保存限制失败："
+                            "保存限制失败，本地修改已保留："
                                     + NetworkErrorHelper.getMessage(throwable),
                             Toast.LENGTH_LONG
                     ).show();
-                    // 将新增或修改请求的网络异常转换为中文提示
+                    failed[0] = true;
+                    finishSave(appList, revision, remaining, failed);
                 }
             });
         }
 
         if (requestCount == 0) {
+            saving = false;
+            LimitSyncManager.markSynced(this);
             Toast.makeText(
                     this,
                     "没有需要同步的限制记录",
@@ -286,6 +316,42 @@ public class AppManageActivity extends AppCompatActivity {
                 "正在同步 " + requestCount + " 条限制记录",
                 Toast.LENGTH_SHORT
         ).show();
+    }
+
+    private void finishSave(List<AppInfo> appList, int revision,
+                            int[] remaining, boolean[] failed) {
+        if (--remaining[0] != 0) return;
+        saving = false;
+        if (revision != editRevision) {
+            saveLimitsToServer(appList);
+        } else if (!failed[0]) {
+            LimitSyncManager.markSynced(this);
+            Toast.makeText(this, "限制配置已同步保存", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applyServerLimit(
+            AppInfo appInfo,
+            AppLimitResponse limit
+    ) {
+        appInfo.setServerId(limit.getId());
+        // 保存数据库记录 ID，后续修改时才能使用 PUT
+
+        if (!limit.isEnabled()) {
+            appInfo.setSelected(false);
+            return;
+        }
+
+        int limitMinutes = limit.getLimitMinutes();
+
+        if (limitMinutes <= 0) {
+            limitMinutes = DEFAULT_LIMIT_MINUTES;
+        }
+        // 防止异常数据把有效限制时间写成 0 分钟
+
+        appInfo.setLimitMinutes(limitMinutes);
+        appInfo.setSelected(true);
+        // 必须先写分钟数再选中，避免 setSelected 自动补成默认的 30 分钟
     }
 
     private void showDeleteConfirmationDialog(
@@ -484,6 +550,10 @@ public class AppManageActivity extends AppCompatActivity {
 
     private Map<String, Long> loadTodayUsageMap() {
         Map<String, Long> usageMap = new HashMap<>();
+        // 保存每个应用今天累计使用的毫秒数
+
+        Map<String, Long> foregroundStartMap = new HashMap<>();
+        // 保存每个应用最近一次进入前台的时间
 
         UsageStatsManager usageStatsManager =
                 (UsageStatsManager) getSystemService(
@@ -493,45 +563,126 @@ public class AppManageActivity extends AppCompatActivity {
         if (usageStatsManager == null) {
             return usageMap;
         }
+        // 无法获取系统使用统计服务时返回空结果
 
         Calendar calendar = Calendar.getInstance();
-
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
-        // 将开始时间设置为今天凌晨 00:00
+        // 把统计开始时间设置为今天凌晨 00:00
 
         long startTime = calendar.getTimeInMillis();
         long endTime = System.currentTimeMillis();
+        // 只统计今天凌晨到当前时刻
 
-        Map<String, UsageStats> usageStatsMap =
-                usageStatsManager.queryAndAggregateUsageStats(
-                        startTime,
-                        endTime
-                );
+        UsageEvents usageEvents =
+                usageStatsManager.queryEvents(startTime, endTime);
+        // 获取指定时间范围内的应用前后台切换事件
 
-        if (usageStatsMap == null
-                || usageStatsMap.isEmpty()) {
+        if (usageEvents == null) {
             return usageMap;
         }
 
-        for (Map.Entry<String, UsageStats> entry
-                : usageStatsMap.entrySet()) {
+        UsageEvents.Event event = new UsageEvents.Event();
 
-            long usageTimeMillis = entry
-                    .getValue()
-                    .getTotalTimeInForeground();
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event);
+
+            String packageName = event.getPackageName();
+
+            if (packageName == null) {
+                continue;
+            }
+
+            int eventType = event.getEventType();
+
+            boolean enteredForeground =
+                    eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+                            || (Build.VERSION.SDK_INT
+                            >= Build.VERSION_CODES.Q
+                            && eventType
+                            == UsageEvents.Event.ACTIVITY_RESUMED);
+            // 判断应用是否进入前台
+
+            boolean enteredBackground =
+                    eventType == UsageEvents.Event.MOVE_TO_BACKGROUND
+                            || (Build.VERSION.SDK_INT
+                            >= Build.VERSION_CODES.Q
+                            && eventType
+                            == UsageEvents.Event.ACTIVITY_PAUSED);
+            // 判断应用是否离开前台
+
+            if (enteredForeground) {
+                if (!foregroundStartMap.containsKey(packageName)) {
+                    foregroundStartMap.put(
+                            packageName,
+                            event.getTimeStamp()
+                    );
+                }
+                // 第一次进入前台时记录开始时间
+
+            } else if (enteredBackground) {
+                Long foregroundStart =
+                        foregroundStartMap.remove(packageName);
+
+                if (foregroundStart == null) {
+                    continue;
+                }
+
+                long duration =
+                        event.getTimeStamp() - foregroundStart;
+
+                if (duration <= 0) {
+                    continue;
+                }
+
+                long oldUsage = usageMap.containsKey(packageName)
+                        ? usageMap.get(packageName)
+                        : 0L;
+
+                usageMap.put(
+                        packageName,
+                        oldUsage + duration
+                );
+                // 应用离开前台时累计本次使用时间
+            }
+        }
+
+        for (Map.Entry<String, Long> entry
+                : foregroundStartMap.entrySet()) {
+
+            long duration = endTime - entry.getValue();
+
+            if (duration <= 0) {
+                continue;
+            }
+
+            long oldUsage = usageMap.containsKey(entry.getKey())
+                    ? usageMap.get(entry.getKey())
+                    : 0L;
 
             usageMap.put(
                     entry.getKey(),
-                    usageTimeMillis
+                    oldUsage + duration
             );
         }
+        // 当前仍在前台的应用，累计到现在为止
+
+        long maximumPossibleUsage = endTime - startTime;
+
+        for (Map.Entry<String, Long> entry : usageMap.entrySet()) {
+            long safeUsage = Math.max(
+                    0L,
+                    Math.min(entry.getValue(), maximumPossibleUsage)
+            );
+
+            entry.setValue(safeUsage);
+        }
+        // 最终保护：单个应用的今日时长不能超过今天已经经过的时间
 
         return usageMap;
     }
-
     private Set<String> getSavedSelectedPackageNames() {
         SharedPreferences preferences =
                 getSharedPreferences(
@@ -598,6 +749,7 @@ public class AppManageActivity extends AppCompatActivity {
         );
 
         editor.apply();
+        LimitSnapshot.publish(this);
         // 异步保存到手机本地
     }
 

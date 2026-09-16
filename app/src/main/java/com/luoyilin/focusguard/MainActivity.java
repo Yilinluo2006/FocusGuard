@@ -1,7 +1,7 @@
 package com.luoyilin.focusguard;
 
 import android.app.AppOpsManager;
-import android.app.usage.UsageStats;
+import android.app.usage.UsageEvents;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +20,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
     // 保存首页“今日使用时长”控件
 
     private TextView tvCurrentAccount;
+    private Button btnUsagePermission;
+    // 保存权限管理按钮，便于页面重新显示时刷新无障碍服务状态
     // 保存首页“当前账号”控件
 
     @Override
@@ -79,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnManageApps = findViewById(R.id.btnManageApps);
         // 找到应用限制管理按钮
 
-        Button btnUsagePermission = findViewById(R.id.btnUsagePermission);
+        btnUsagePermission = findViewById(R.id.btnUsagePermission);
         // 找到使用情况访问权限按钮
 
         Button btnLogout = findViewById(R.id.btnLogout);
@@ -135,6 +138,13 @@ public class MainActivity extends AppCompatActivity {
         }
         // 登录状态失效后不再显示首页，也不继续请求后端
 
+        if (FocusAccessibilityService.isEnabled(this)) {
+            ProtectionService.start(this);
+        }
+        updateAccessibilityStatus();
+        btnUsagePermission.postDelayed(this::updateAccessibilityStatus, 800L);
+        // 页面可见时主动确保前台保护运行，并在跨进程启动完成后再次刷新。
+
         updateTodayUsage();
         // 先使用当前本地缓存更新页面，避免等待网络时页面没有内容
 
@@ -177,6 +187,26 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
         // 异步请求后端，不会阻塞安卓界面
+    }
+
+    private void updateAccessibilityStatus() {
+        if (btnUsagePermission == null) {
+            return;
+        }
+
+        boolean accessibilityEnabled = FocusAccessibilityService.isEnabled(this);
+        boolean accessibilityRunning = FocusAccessibilityService.isRunning(this);
+        // 同时检查系统开关和服务的真实绑定状态
+
+        if (accessibilityEnabled && accessibilityRunning) {
+            btnUsagePermission.setText("检查并管理必要权限");
+        } else if (accessibilityEnabled) {
+            btnUsagePermission.setText("无障碍已开启，点击检查保护状态");
+            // 授权存在但心跳尚未恢复时进入状态中心继续诊断，不误报为故障。
+        } else {
+            btnUsagePermission.setText("重新开启无障碍服务");
+            // 系统已经关闭授权时明确提示用户重新开启，普通应用不能静默代开
+        }
     }
 
     private void showCurrentAccount(SessionManager sessionManager) {
@@ -284,32 +314,60 @@ public class MainActivity extends AppCompatActivity {
         long endTime = System.currentTimeMillis();
         // 设置统计时间范围：今天凌晨到当前时间
 
-        Map<String, UsageStats> usageStatsMap =
-                usageStatsManager.queryAndAggregateUsageStats(startTime, endTime);
-        // 按包名查询并合并今天的应用使用数据
+        UsageEvents usageEvents = usageStatsManager.queryEvents(startTime, endTime);
+        // 获取今天所有应用进入和离开前台的事件
 
-        if (usageStatsMap == null || usageStatsMap.isEmpty()) {
-            return 0;
-        }
-        // 没有读取到数据时返回 0
+        Map<String, Long> foregroundStartMap = new HashMap<>();
+        // 记录每个受限应用最近一次进入前台的时间
 
         long totalUsageTime = 0;
 
-        for (Map.Entry<String, UsageStats> entry : usageStatsMap.entrySet()) {
-            String packageName = entry.getKey();
-            // 获取当前统计项的包名
+        UsageEvents.Event event = new UsageEvents.Event();
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event);
+            String packageName = event.getPackageName();
 
-            if (!selectedPackages.contains(packageName)) {
+            if (packageName == null || !selectedPackages.contains(packageName)) {
                 continue;
             }
-            // 只统计已勾选的受限应用
+            // 忽略未受限应用，只统计当前勾选的应用
 
-            totalUsageTime += entry.getValue().getTotalTimeInForeground();
-            // 累加该应用在前台的使用时间
+            int eventType = event.getEventType();
+            boolean enteredForeground = eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    && eventType == UsageEvents.Event.ACTIVITY_RESUMED);
+            boolean enteredBackground = eventType == UsageEvents.Event.MOVE_TO_BACKGROUND
+                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    && eventType == UsageEvents.Event.ACTIVITY_PAUSED);
+
+            if (enteredForeground) {
+                foregroundStartMap.putIfAbsent(packageName, event.getTimeStamp());
+                // 保存进入前台的时间，重复的前台事件不会重复开始计时
+            } else if (enteredBackground) {
+                Long foregroundStart = foregroundStartMap.remove(packageName);
+                if (foregroundStart == null) {
+                    continue;
+                }
+
+                long duration = event.getTimeStamp() - foregroundStart;
+                if (duration > 0) {
+                    totalUsageTime += duration;
+                }
+                // 应用离开前台时，累加这一段实际使用时间
+            }
         }
 
-        return totalUsageTime;
-        // 返回已限制应用总使用时长，单位为毫秒
+        for (Long foregroundStart : foregroundStartMap.values()) {
+            long duration = endTime - foregroundStart;
+            if (duration > 0) {
+                totalUsageTime += duration;
+            }
+        }
+        // 如果某个受限应用当前仍在前台，把最后一段时间统计到现在
+
+        long elapsedToday = endTime - startTime;
+        return Math.max(0, Math.min(totalUsageTime, elapsedToday));
+        // 总时长不会超过今天已经过去的时间，防止异常事件造成错误的大数值
     }
 
     private Set<String> getSavedSelectedPackageNames() {

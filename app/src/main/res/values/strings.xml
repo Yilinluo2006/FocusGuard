@@ -1,6 +1,7 @@
 <resources>
 
     <string name="app_name">FocusGuard</string>
+    <string name="remaining_time_label">剩余 %1$s</string>
 
     <string name="accessibility_service_description">
         监测受限应用是否达到每日使用时间，并在超时后阻止继续使用
