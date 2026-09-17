@@ -1,6 +1,7 @@
 <resources>
 
     <string name="app_name">FocusGuard</string>
+    <string name="last_minute_warning">还剩 1 分钟，即将限制使用</string>
     <string name="remaining_time_label">剩余 %1$s</string>
 
     <string name="accessibility_service_description">

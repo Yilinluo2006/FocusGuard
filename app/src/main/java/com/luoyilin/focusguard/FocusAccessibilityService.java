@@ -46,6 +46,24 @@ public class FocusAccessibilityService extends AccessibilityService {
     private View blockingOverlay;
     private RemainingTimeOverlay remainingTimeOverlay;
     private boolean blockInProgress;
+    private final Runnable confirmAppExit = () -> {
+        if (currentPackageName == null) return;
+        UsageStatsManager manager = getSystemService(UsageStatsManager.class);
+        if (manager == null) return;
+        long now = System.currentTimeMillis();
+        UsageEvents events = manager.queryEvents(now - 300_000, now);
+        if (events == null) return;
+        UsageEvents.Event item = new UsageEvents.Event();
+        String resumed = null;
+        while (events.hasNextEvent()) {
+            events.getNextEvent(item);
+            if (isForegroundEvent(item)) resumed = item.getPackageName();
+        }
+        if (resumed != null && !resumed.equals(currentPackageName)) {
+            Log.d("FocusAccessibility", "Confirmed foreground exit to " + resumed);
+            stopMonitoring();
+        }
+    };
     private final Runnable hideOverlayTask = () -> {
         hideOverlay();
         blockInProgress = false;
@@ -156,12 +174,15 @@ public class FocusAccessibilityService extends AccessibilityService {
         // FocusGuard 自己不限制自己，否则会把阻断页面也拦掉
 
         if (!isLimitedPackage(packageName)) {
-            stopMonitoring();
+            // System/keyboard/overlay windows do not necessarily change the foreground app.
+            handler.removeCallbacks(confirmAppExit);
+            handler.postDelayed(confirmAppExit, 200);
             return;
         }
         // 如果当前应用没有被用户勾选限制，就停止监控
 
         currentPackageName = packageName;
+        handler.removeCallbacks(confirmAppExit);
         handler.removeCallbacks(usageCheckTask);
         if (blockInProgress) {
             Log.d("FocusAccessibility", "Coalesced window event for " + packageName);
@@ -199,7 +220,7 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 如果今日使用时长已经达到限制，就执行强制阻断
 
         if (remainingTimeOverlay != null) {
-            remainingTimeOverlay.show(limitMillis - todayUsageMillis);
+            remainingTimeOverlay.show(packageName, limitMillis - todayUsageMillis);
         }
         handler.removeCallbacks(usageCheckTask);
         handler.postDelayed(usageCheckTask,
@@ -385,6 +406,7 @@ public class FocusAccessibilityService extends AccessibilityService {
     }
 
     private void stopMonitoring() {
+        handler.removeCallbacks(confirmAppExit);
         if (remainingTimeOverlay != null) {
             remainingTimeOverlay.hide();
         }
