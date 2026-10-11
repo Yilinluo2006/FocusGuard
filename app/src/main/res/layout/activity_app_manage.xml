@@ -1,46 +1,101 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 应用管理页面 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/appManagePage"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F8FA"
-    android:gravity="center_horizontal"
+    android:background="@color/page_background"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="20dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="应用限制管理"
-        android:textColor="#111827"
-        android:textSize="26sp"
-        android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="应用限制"
+            android:textColor="@color/text_primary" android:textSize="32sp"
+            android:textStyle="bold" />
+        <Button android:id="@+id/btnRestrictionRules"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:backgroundTint="@color/secondary_surface"
+            android:text="规则" android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tvSelectedCount"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="已限制 0 个应用"
+        android:textColor="@color/accent_text"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/tvCloudStatus"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="start"
+        android:text="本机自动保存"
+        android:textColor="@color/text_secondary"
+        android:accessibilityLiveRegion="polite"
+        android:textSize="14sp" />
+    <TextView android:id="@+id/emergencySummary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:textSize="14sp"
+        android:textColor="@color/text_secondary" />
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/appFilterGroup"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="已选择 0 个应用"
-        android:textColor="#2563EB"
-        android:textSize="16sp" />
+        app:selectionRequired="true" app:singleSelection="true">
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterSelected"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp"
+            android:layout_weight="1" android:text="已限制"
+            android:textSize="14sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterAll"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp"
+            android:layout_weight="1" android:text="全部应用"
+            android:textSize="14sp" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
-    <Button
-        android:id="@+id/btnAddLimitedApp"
-        android:layout_width="220dp"
-        android:layout_height="52dp"
-        android:layout_marginTop="20dp"
-        android:backgroundTint="#2563EB"
-        android:text="添加限制应用"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp" />
+    <EditText android:id="@+id/appSearch"
+        android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+        android:layout_marginTop="12dp" android:hint="搜索应用"
+        android:imeOptions="actionSearch" android:inputType="text"
+        android:singleLine="true" android:textSize="16sp"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvAppList"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="24dp"
-        android:layout_weight="1" />
+        android:layout_marginTop="12dp"
+        android:layout_weight="1">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvAppList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <LinearLayout android:id="@+id/emptyApps"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_gravity="center" android:gravity="center"
+            android:orientation="vertical" android:visibility="gone">
+            <TextView android:id="@+id/tvEmptyApps"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary" android:textSize="16sp" />
+            <Button android:id="@+id/btnEmptyAction"
+                android:layout_width="wrap_content" android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/secondary_surface"
+                android:textColor="@color/text_primary" />
+        </LinearLayout>
+    </FrameLayout>
 
 </LinearLayout>

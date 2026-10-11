@@ -22,9 +22,7 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
-import android.widget.Toast;
 
-import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -41,28 +39,60 @@ public class FocusAccessibilityService extends AccessibilityService {
     private static final long HEALTH_INTERVAL_MILLIS = 10_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final String streakSession = java.util.UUID.randomUUID().toString();
     private String currentPackageName;
+    private long lastAppWindowAt;
     private Properties latestLimits = new Properties();
     private View blockingOverlay;
+    private long blockedQuotaDay = Long.MIN_VALUE;
     private RemainingTimeOverlay remainingTimeOverlay;
+    private RecordedPageController recordedPages;
     private boolean blockInProgress;
+    private final Runnable finishBlockTransition = () -> {
+        blockInProgress = false;
+        if (currentPackageName != null) checkCurrentAppUsage();
+    };
+    private FocusModeController focusMode;
+    private final Runnable recoveryCheck = new Runnable() {
+        @Override public void run() {
+            try {
+                boolean focusing = focusMode != null && focusMode.active();
+                if (focusing && focusMode.whitelistedForeground() == null) return;
+                android.os.PowerManager power = getSystemService(android.os.PowerManager.class);
+                android.app.KeyguardManager keyguard = getSystemService(android.app.KeyguardManager.class);
+                if (!power.isInteractive() || keyguard.isKeyguardLocked()) {
+                    stopMonitoring(); return;
+                }
+                if (currentPackageName != null || blockInProgress) return;
+                UsageStatsManager manager = getSystemService(UsageStatsManager.class);
+                long now = System.currentTimeMillis();
+                UsageEvents events = manager.queryEvents(now - 60_000L, now);
+                if (events == null) return;
+                UsageEvents.Event event = new UsageEvents.Event();
+                String candidate = null;
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event);
+                    if (isForegroundEvent(event)) candidate = event.getPackageName();
+                    else if (isBackgroundEvent(event) && event.getPackageName() != null
+                            && event.getPackageName().equals(candidate)) candidate = null;
+                }
+                if (candidate != null && isLimitedPackage(candidate)
+                        && FocusLimitPolicy.monitorDailyLimit(focusing,
+                                focusMode != null && focusMode.whitelisted(candidate))) {
+                    currentPackageName = candidate;
+                    checkCurrentAppUsage();
+                }
+            } catch (RuntimeException error) {
+                Log.e("FocusAccessibility", "Foreground recovery failed", error);
+            } finally {
+                handler.postDelayed(this, CHECK_INTERVAL_MILLIS);
+            }
+        }
+    };
     private final Runnable confirmAppExit = () -> {
         if (currentPackageName == null) return;
-        UsageStatsManager manager = getSystemService(UsageStatsManager.class);
-        if (manager == null) return;
-        long now = System.currentTimeMillis();
-        UsageEvents events = manager.queryEvents(now - 300_000, now);
-        if (events == null) return;
-        UsageEvents.Event item = new UsageEvents.Event();
-        String resumed = null;
-        while (events.hasNextEvent()) {
-            events.getNextEvent(item);
-            if (isForegroundEvent(item)) resumed = item.getPackageName();
-        }
-        if (resumed != null && !resumed.equals(currentPackageName)) {
-            Log.d("FocusAccessibility", "Confirmed foreground exit to " + resumed);
-            stopMonitoring();
-        }
+        handler.removeCallbacks(this.usageCheckTask);
+        checkCurrentAppUsage();
     };
     private final Runnable hideOverlayTask = () -> {
         hideOverlay();
@@ -86,6 +116,15 @@ public class FocusAccessibilityService extends AccessibilityService {
         @Override
         public void run() {
             ProtectionStateStore.touchAccessibility(FocusAccessibilityService.this);
+            SleepControlSession.observe(FocusAccessibilityService.this);
+            if (blockingOverlay != null && blockedQuotaDay != ProtectionClock.day(FocusAccessibilityService.this)) hideOverlay();
+            boolean eligible = new FocusModeStore(FocusAccessibilityService.this).prefs.getBoolean("daily", false)
+                    || (focusMode != null && focusMode.active());
+            try { eligible |= !LimitSnapshot.read(FocusAccessibilityService.this).isEmpty(); }
+            catch (java.io.IOException ignored) { }
+            StreakStore.pulse(FocusAccessibilityService.this, streakSession,
+                    eligible && isEnabled(FocusAccessibilityService.this));
+            CoverageStore.sample(FocusAccessibilityService.this, eligible);
             handler.postDelayed(this, HEALTH_INTERVAL_MILLIS);
         }
     };
@@ -93,21 +132,29 @@ public class FocusAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        if (remainingTimeOverlay == null) {
-            remainingTimeOverlay = new RemainingTimeOverlay(this);
-        }
+        handler.removeCallbacks(hideOverlayTask);
+        handler.removeCallbacks(recoveryCheck);
+        handler.removeCallbacks(finishBlockTransition);
+        stopMonitoring();
+        hideOverlay();
+        blockInProgress = false;
+        StreakStore.pulse(this, streakSession, false);
+        if (focusMode != null) focusMode.close();
+        if (recordedPages != null) recordedPages.close();
+        try { recordedPages = new RecordedPageController(this); }
+        catch (RuntimeException unavailable) { recordedPages = null; }
+        focusMode = new FocusModeController(this);
+        remainingTimeOverlay = new RemainingTimeOverlay(this);
+        handler.post(recoveryCheck);
         ProtectionStateStore.markAccessibilityConnected(this, "accessibility_connected");
+        ProtectionRecoveryStore.record(this, "connected", ProtectionRecovery.capabilities(this));
+        ProtectionWarning.refresh(this);
         handler.removeCallbacks(serviceHealthTask);
         handler.post(serviceHealthTask);
         ProtectionService.start(this);
         // 前台服务与无障碍服务共用 :guard 进程，保护的正是执行限制的进程。
 
-        Toast.makeText(
-                this,
-                "FocusGuard 强制限制服务已启动",
-                Toast.LENGTH_SHORT
-        ).show();
-        // 无障碍服务启动成功时显示提示
+        Log.i("FocusAccessibility", "Protection service connected");
     }
 
     public static boolean isRunning(Context context) {
@@ -153,6 +200,9 @@ public class FocusAccessibilityService extends AccessibilityService {
         if (event == null || event.getPackageName() == null) {
             return;
         }
+        if (recordedPages != null) {
+            try { recordedPages.onEvent(event); } catch (RuntimeException unavailable) { recordedPages.close(); recordedPages = null; }
+        }
         // 忽略无效事件
 
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -161,6 +211,19 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 只处理窗口切换事件，也就是用户打开或切换应用时触发
 
         String packageName = event.getPackageName().toString();
+        if (focusMode != null && focusMode.onWindow(event)) {
+            String allowed = focusMode.whitelistedForeground();
+            if (allowed == null || allowed.equals(getPackageName()) || !isLimitedPackage(allowed)) {
+                stopMonitoring();
+                return;
+            }
+            currentPackageName = allowed;
+            lastAppWindowAt = SystemClock.elapsedRealtime();
+            handler.removeCallbacks(confirmAppExit);
+            handler.removeCallbacks(usageCheckTask);
+            if (!blockInProgress) checkCurrentAppUsage();
+            return;
+        }
         // 获取当前前台窗口所属应用的包名
 
         if (packageName.equals(getPackageName())) {
@@ -174,6 +237,11 @@ public class FocusAccessibilityService extends AccessibilityService {
         // FocusGuard 自己不限制自己，否则会把阻断页面也拦掉
 
         if (!isLimitedPackage(packageName)) {
+            String keyboard = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+            if (!ProtectionClock.nativeReliable(this) && !packageName.equals("com.android.systemui")
+                    && (keyboard == null || !keyboard.startsWith(packageName + "/"))) {
+                stopMonitoring(); return;
+            }
             // System/keyboard/overlay windows do not necessarily change the foreground app.
             handler.removeCallbacks(confirmAppExit);
             handler.postDelayed(confirmAppExit, 200);
@@ -182,6 +250,7 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 如果当前应用没有被用户勾选限制，就停止监控
 
         currentPackageName = packageName;
+        lastAppWindowAt = SystemClock.elapsedRealtime();
         handler.removeCallbacks(confirmAppExit);
         handler.removeCallbacks(usageCheckTask);
         if (blockInProgress) {
@@ -192,9 +261,34 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 当前应用是受限应用，立刻开始检查使用时长
     }
 
+    void onFocusModeChanged(boolean active, String packageName) {
+        if (active) {
+            stopMonitoring();
+            handler.removeCallbacks(hideOverlayTask);
+            hideOverlay();
+            blockInProgress = false;
+            if (packageName != null && focusMode != null && focusMode.whitelisted(packageName)
+                    && isLimitedPackage(packageName)) {
+                currentPackageName = packageName;
+                lastAppWindowAt = SystemClock.elapsedRealtime();
+                handler.post(usageCheckTask);
+            }
+        } else if (packageName != null && isLimitedPackage(packageName)) {
+            currentPackageName = packageName;
+            lastAppWindowAt = SystemClock.elapsedRealtime();
+            handler.post(usageCheckTask);
+        }
+    }
+
     private void checkCurrentAppUsage() {
-        long started = SystemClock.elapsedRealtime();
+        boolean focusing = focusMode != null && focusMode.active();
         String packageName = currentPackageName;
+        if (!FocusLimitPolicy.monitorDailyLimit(focusing,
+                focusMode != null && focusMode.whitelisted(packageName))) {
+            stopMonitoring();
+            return;
+        }
+        long started = SystemClock.elapsedRealtime();
 
         int limitMinutes = packageName == null ? 0 : getLimitMinutes(packageName);
         if (limitMinutes <= 0) {
@@ -206,11 +300,40 @@ public class FocusAccessibilityService extends AccessibilityService {
         long limitMillis = limitMinutes * 60L * 1000L;
         // 把限制分钟数转换成毫秒
 
-        long todayUsageMillis = getTodayUsageMillis(packageName);
+        ProtectionTimeLedger.Sample clock = ProtectionClock.read(this);
+        boolean nativeReliable = ProtectionClock.nativeReliable(this);
+        UsageSession session = nativeReliable ? getTodayUsageSession(packageName) : null;
+        if (nativeReliable && (session == null || !session.isActive())) {
+            if (remainingTimeOverlay != null) remainingTimeOverlay.hide();
+            handler.removeCallbacks(usageCheckTask);
+            // UsageEvents can lag behind a new accessibility window event briefly.
+            if (SystemClock.elapsedRealtime() - lastAppWindowAt < 1500) {
+                handler.postDelayed(usageCheckTask, 250);
+            } else {
+                Log.d("FocusAccessibility", "Usage session ended for " + packageName);
+                stopMonitoring();
+            }
+            return;
+        }
+        long todayUsageMillis;
+        try { todayUsageMillis = UsageBudgetStore.tick(this, packageName, session == null ? 0 : session.totalAt(System.currentTimeMillis())); }
+        catch (java.io.IOException e) { Log.e("FocusAccessibility", "Cannot verify remaining usage", e); blockCurrentApp(packageName); return; }
+        long sharedRemaining = SharedQuota.remaining(this, packageName, todayUsageMillis);
+        if (sharedRemaining != Long.MAX_VALUE) limitMillis = Math.min(limitMillis, todayUsageMillis + sharedRemaining);
         Log.d("FocusAccessibility", "Checking " + packageName + " usageMs="
                 + todayUsageMillis + " limitMinutes=" + limitMinutes);
         // 读取这个应用今天的实际前台使用时长
 
+        long allowance = DailyTemporaryAccess.allowed(this, packageName)
+                ? RestrictionStore.allowance(this, packageName) : 0;
+        if (allowance > 0 && !SharedQuota.enabled(this)) {
+            if (remainingTimeOverlay != null) {
+                remainingTimeOverlay.showTemporary(packageName, allowance);
+            }
+            handler.removeCallbacks(usageCheckTask);
+            handler.postDelayed(usageCheckTask, Math.min(1000L, allowance));
+            return;
+        }
         if (todayUsageMillis >= limitMillis) {
             blockCurrentApp(packageName);
             Log.i("FocusAccessibility", "Blocked " + packageName + " decisionMs="
@@ -220,7 +343,11 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 如果今日使用时长已经达到限制，就执行强制阻断
 
         if (remainingTimeOverlay != null) {
-            remainingTimeOverlay.show(packageName, limitMillis - todayUsageMillis);
+            if (sharedRemaining == Long.MAX_VALUE) remainingTimeOverlay.show(packageName, limitMillis - todayUsageMillis);
+            else {
+                SharedQuota.Timer timer = SharedQuota.timer(this, packageName, todayUsageMillis, limitMinutes * 60_000L, sharedRemaining);
+                remainingTimeOverlay.show(packageName, timer.millis, timer.offline);
+            }
         }
         handler.removeCallbacks(usageCheckTask);
         handler.postDelayed(usageCheckTask,
@@ -233,20 +360,34 @@ public class FocusAccessibilityService extends AccessibilityService {
             return;
         }
         blockInProgress = true;
+        try { RestrictionStore.lockExhausted(this, packageName, getLimitMinutes(packageName)); }
+        catch (java.io.IOException e) { Log.e("FocusAccessibility", "Cannot persist exhausted limit", e); }
         String appName = getAppName(packageName);
+        blockedQuotaDay = ProtectionClock.day(this);
         // 根据包名获取应用名称，用于阻断页面展示
 
         stopMonitoring();
         // 清理当前监控任务，避免重复触发
 
-        showOverlay(appName);
+        boolean focusing = focusMode != null && focusMode.active();
+        if (focusing) focusMode.notifyDailyLimit(appName);
+        else showOverlay(appName, packageName);
         boolean sent = performGlobalAction(GLOBAL_ACTION_HOME);
+        if (!sent && focusing) showOverlay(appName, packageName);
         Log.i("FocusAccessibility", "HOME accepted=" + sent);
+        if (focusing && DailyTemporaryAccess.allowed(this, packageName)) {
+            handler.postDelayed(() -> {
+                if (focusMode != null && focusMode.active() && DailyTemporaryAccess.allowed(this, packageName)) {
+                    hideOverlay(); showOverlay(appName, packageName);
+                }
+            }, 400);
+        }
         // 通过无障碍服务执行系统“返回桌面”操作
 
         handler.removeCallbacks(hideOverlayTask);
-        handler.postDelayed(hideOverlayTask, 800);
-        // Keep the transition covered; do not send HOME again for queued window events.
+        // The prompt can be hidden by an OEM. Never wait for its dismissal to re-arm blocking.
+        handler.removeCallbacks(finishBlockTransition);
+        handler.postDelayed(finishBlockTransition, 800);
     }
 
     private void openBlockedPage(String appName) {
@@ -265,6 +406,18 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 判断当前应用是否属于受限应用
     }
 
+    boolean dailyLimitReached(String packageName) {
+        if (DailyTemporaryAccess.allowed(this, packageName) && RestrictionStore.allowance(this, packageName) > 0) return false;
+        int limitMinutes = getLimitMinutes(packageName);
+        if (limitMinutes <= 0) return false;
+        UsageSession session = getTodayUsageSession(packageName);
+        try {
+            long used = UsageBudgetStore.totals(this, java.util.Collections.singleton(packageName),
+                    java.util.Collections.singletonMap(packageName, session == null ? 0 : session.totalAt(System.currentTimeMillis()))).getOrDefault(packageName, 0L);
+            return used >= limitMinutes * 60_000L || SharedQuota.remaining(this, packageName, used) <= 0;
+        } catch (java.io.IOException e) { return true; }
+    }
+
     private int getLimitMinutes(String packageName) {
         try {
             latestLimits = LimitSnapshot.read(this);
@@ -276,21 +429,81 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 读取当前应用的限制分钟数，默认是 30 分钟
     }
 
-    private void showOverlay(String appName) {
+    void requestDailyTemporaryFromToolbox(String pkg) {
+        if (getLimitMinutes(pkg) <= 0 || !DailyTemporaryAccess.allowed(this, pkg)) return;
+        hideOverlay(); showOverlay(getAppName(pkg), pkg);
+    }
+
+    private void showOverlay(String appName, String packageName) {
         try {
             if (blockingOverlay == null) {
-                blockingOverlay = LayoutInflater.from(this).inflate(R.layout.activity_blocked, null);
+                blockingOverlay = LayoutInflater.from(Appearance.overlayContext(this)).inflate(R.layout.activity_blocked, null);
                 WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                        -1, -1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.OPAQUE);
-                getSystemService(WindowManager.class).addView(blockingOverlay, params);
+                        -1, -2, GuardWindow.type(this),
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                | WindowManager.LayoutParams.FLAG_DIM_BEHIND, PixelFormat.TRANSLUCENT);
+                params.dimAmount = 0.5f;
+                GuardWindow.manager(this).addView(blockingOverlay, params);
             }
             ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage))
-                    .setText(appName + " 今日使用时间已达到限制");
+                    .setText(SharedQuota.blockedMessage(this, appName));
+            android.widget.Button request = blockingOverlay.findViewById(R.id.btnEmergency);
+            int left;
+            try { left = RestrictionStore.left(this); } catch (java.io.IOException e) { left = -1; }
+            request.setEnabled(left > 0 && DailyTemporaryAccess.allowed(this, packageName));
+            request.setText(QuotaPresentation.appButton(left));
+            if (left == 0) ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage))
+                    .setText(nameExhausted(appName));
+            request.setVisibility(SharedQuota.enabled(this) ? android.view.View.GONE : android.view.View.VISIBLE);
+            request.setOnClickListener(v -> confirmEmergency(appName, packageName, request));
+            blockingOverlay.findViewById(R.id.btnKeepRestricted).setOnClickListener(v -> {
+                handler.post(hideOverlayTask);
+            });
         } catch (RuntimeException error) {
             Log.e("FocusAccessibility", "Cannot display blocking overlay", error);
             hideOverlay();
+            handler.postDelayed(hideOverlayTask, 800);
         }
+    }
+
+    private void confirmEmergency(String name, String pkg, android.widget.Button request) {
+        try {
+            int left = RestrictionStore.left(this);
+            if (left <= 0) {
+                request.setEnabled(false);
+                request.setText("应用临时次数已用完 · 04:00 恢复");
+                ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage)).setText(nameExhausted(name));
+                return;
+            }
+            ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage)).setText("应用临时次数：剩余 " + left + " / 5。"+QuotaPresentation.APP_POOL+"确认后“" + name
+                        + "”使用 2 分钟。"+QuotaPresentation.CONTINUOUS_NOTE+"应用临时次数用完后，本机每日额度已耗尽的应用持续限制至次日 04:00。"
+                        + (SleepTemporaryUse.state(this).getBoolean("sleeping") ? "\n\n仅放行这个白名单应用，睡眠模式继续生效，不扣除睡眠全局临时次数。" : ""));
+            request.setText("确认应用临时使用 2 分钟");
+            request.setOnClickListener(v -> {
+                try {
+                    if (!DailyTemporaryAccess.allowed(this, pkg))
+                        throw new java.io.IOException("当前仅睡眠白名单应用可申请应用临时使用");
+                    Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+                    if (launch == null) throw new java.io.IOException("无法打开该应用");
+                    RestrictionStore.grant(this, pkg);
+                    hideOverlay();
+                    blockInProgress = false;
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(launch);
+                } catch (Exception e) {
+                    android.widget.Toast.makeText(this, e.getMessage(),
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
+        } catch (Exception e) {
+            request.setEnabled(false);
+            ((TextView) blockingOverlay.findViewById(R.id.tvBlockedMessage))
+                    .setText("无法读取应用临时次数，请稍后重试");
+        }
+    }
+
+    private static String nameExhausted(String name) {
+        return "“" + name + "”的本机每日额度和应用临时次数均已耗尽。\n将持续限制至次日 04:00，今天不能再解除限制。";
     }
 
     private void hideOverlay() {
@@ -299,66 +512,16 @@ public class FocusAccessibilityService extends AccessibilityService {
             catch (RuntimeException ignored) { }
             blockingOverlay = null;
         }
+        blockedQuotaDay = Long.MIN_VALUE;
     }
 
-    private long getTodayUsageMillis(String targetPackageName) {
-        UsageStatsManager usageStatsManager =
-                (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-
-        if (usageStatsManager == null) {
-            return 0;
-        }
-        // 如果系统服务不可用，就返回 0
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        // 统计起点设置为今天凌晨 00:00
-
-        long startTime = calendar.getTimeInMillis();
-        long endTime = System.currentTimeMillis();
-        // 统计范围是今天凌晨到当前时间
-
-        UsageEvents usageEvents =
-                usageStatsManager.queryEvents(startTime, endTime);
-
-        UsageEvents.Event event = new UsageEvents.Event();
-
-        long foregroundStartTime = -1;
-        long totalUsageMillis = 0;
-        // foregroundStartTime 记录进入前台的时间，totalUsageMillis 记录累计时长
-
-        while (usageEvents.hasNextEvent()) {
-            usageEvents.getNextEvent(event);
-
-            if (!targetPackageName.equals(event.getPackageName())) {
-                continue;
-            }
-            // 只计算目标应用自己的事件
-
-            if (isForegroundEvent(event)) {
-                if (foregroundStartTime == -1) {
-                    foregroundStartTime = event.getTimeStamp();
-                }
-                // 应用进入前台，开始记录这一段使用时间
-
-            } else if (isBackgroundEvent(event)) {
-                if (foregroundStartTime != -1) {
-                    totalUsageMillis += event.getTimeStamp() - foregroundStartTime;
-                    foregroundStartTime = -1;
-                }
-                // 应用离开前台，把这一段使用时间加入总时长
-            }
-        }
-
-        if (foregroundStartTime != -1) {
-            totalUsageMillis += endTime - foregroundStartTime;
-        }
-        // 如果应用当前仍在前台，就把“进入前台到现在”的时间也算进去
-
-        return totalUsageMillis;
+    private UsageSession getTodayUsageSession(String targetPackageName) {
+        ProtectionTimeLedger.Sample time = ProtectionClock.read(this);
+        long wallNow = System.currentTimeMillis();
+        long from = StreakLedger.boundary(time.day, time.zone) + wallNow - time.millis;
+        AppUsageTimeline timeline = AppUsageReader.readRange(this,
+                from, wallNow, java.util.Collections.singleton(targetPackageName));
+        return timeline == null ? null : timeline.session(targetPackageName);
     }
 
     private boolean isForegroundEvent(UsageEvents.Event event) {
@@ -383,7 +546,8 @@ public class FocusAccessibilityService extends AccessibilityService {
         // 兼容旧版本的离开前台事件
 
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && eventType == UsageEvents.Event.ACTIVITY_PAUSED;
+                && (eventType == UsageEvents.Event.ACTIVITY_PAUSED
+                || eventType == UsageEvents.Event.ACTIVITY_STOPPED);
         // Android 10 及以上使用新的离开前台事件
     }
 
@@ -406,6 +570,7 @@ public class FocusAccessibilityService extends AccessibilityService {
     }
 
     private void stopMonitoring() {
+        UsageBudgetStore.pause(this);
         handler.removeCallbacks(confirmAppExit);
         if (remainingTimeOverlay != null) {
             remainingTimeOverlay.hide();
@@ -424,11 +589,19 @@ public class FocusAccessibilityService extends AccessibilityService {
 
     @Override
     public boolean onUnbind(Intent intent) {
+        if (recordedPages != null) { recordedPages.close(); recordedPages = null; }
+        handler.removeCallbacks(finishBlockTransition);
+        handler.removeCallbacks(recoveryCheck);
+        StreakStore.pulse(this, streakSession, false);
+        if (focusMode != null) { focusMode.close(); focusMode = null; }
         blockInProgress = false;
         handler.removeCallbacks(hideOverlayTask);
         hideOverlay();
         handler.removeCallbacks(serviceHealthTask);
         ProtectionStateStore.markAccessibilityDisconnected(this, "accessibility_unbound");
+        ProtectionRecoveryStore.record(this, "disconnect", ProtectionRecovery.capabilities(this));
+        ProtectionWarning.refresh(this);
+        SleepControlSession.observe(this);
         stopMonitoring();
         return super.onUnbind(intent);
     }
@@ -436,11 +609,19 @@ public class FocusAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        if (recordedPages != null) { recordedPages.close(); recordedPages = null; }
+        handler.removeCallbacks(finishBlockTransition);
+        handler.removeCallbacks(recoveryCheck);
+        StreakStore.pulse(this, streakSession, false);
+        if (focusMode != null) { focusMode.close(); focusMode = null; }
         blockInProgress = false;
         handler.removeCallbacks(hideOverlayTask);
         hideOverlay();
         handler.removeCallbacks(serviceHealthTask);
         ProtectionStateStore.markAccessibilityDisconnected(this, "accessibility_destroyed");
+        ProtectionRecoveryStore.record(this, "disconnect", ProtectionRecovery.capabilities(this));
+        ProtectionWarning.refresh(this);
+        SleepControlSession.observe(this);
         stopMonitoring();
         super.onDestroy();
         // 服务销毁时清理任务，避免内存泄漏

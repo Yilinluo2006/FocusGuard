@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F8FA"
+    android:background="@color/page_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -16,45 +16,23 @@
         android:paddingBottom="48dp">
 
         <!-- 注册页面标题 -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="创建 FocusGuard 账号"
-            android:textColor="#111827"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+        
 
         <!-- 注册页面说明 -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="注册后同步你的应用限制"
-            android:textColor="#6B7280"
+            android:text="邮箱验证后即可使用账号备份"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp" />
-
-        <!-- 用户名输入框 -->
-        <EditText
-            android:id="@+id/etRegisterUsername"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="32dp"
-            android:autofillHints="username"
-            android:hint="用户名"
-            android:inputType="textPersonName"
-            android:maxLines="1"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:textColor="@color/input_text"
-            android:textColorHint="@color/input_hint"
-            android:singleLine="true" />
 
         <!-- 邮箱输入框 -->
         <EditText
             android:id="@+id/etRegisterEmail"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="32dp"
             android:autofillHints="emailAddress"
             android:hint="邮箱"
             android:inputType="textEmailAddress"
@@ -98,15 +76,14 @@
             android:singleLine="true" />
 
         <!-- 提交注册请求 -->
-        <Button
+        <com.luoyilin.focusguard.RaisedButton
             android:id="@+id/btnRegister"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
-            android:backgroundTint="#2563EB"
             android:text="注册并验证邮箱"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/on_primary"
             android:textSize="16sp" />
 
         <!-- 网络请求期间显示加载状态 -->
@@ -126,8 +103,8 @@
             android:backgroundTint="@android:color/transparent"
             android:text="已有账号？返回登录"
             android:textAllCaps="false"
-            android:textColor="#2563EB"
-            android:textSize="15sp" />
+            android:textColor="@color/accent_text"
+            android:textSize="15sp"  android:visibility="gone" />
 
     </LinearLayout>
 

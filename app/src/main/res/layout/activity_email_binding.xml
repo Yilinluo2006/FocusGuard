@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/emailBindingPage" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/page_background">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+  
+  <TextView android:id="@+id/bindingCurrentEmail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:textSize="16sp" android:textColor="@color/text_secondary" />
+  <EditText android:id="@+id/bindingNewEmail" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="20dp" android:hint="新邮箱" android:inputType="textEmailAddress" android:singleLine="true" android:paddingHorizontal="16dp" android:maxLength="100" android:textColor="@color/input_text" android:textColorHint="@color/input_hint" />
+  <EditText android:id="@+id/bindingPassword" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="12dp" android:hint="当前账号密码" android:inputType="textPassword" android:singleLine="true" android:paddingHorizontal="16dp" android:saveEnabled="false" android:textColor="@color/input_text" android:textColorHint="@color/input_hint" />
+  <Button android:id="@+id/bindingSendCode" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="16dp" android:text="发送验证码" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
+  <TextView android:id="@+id/bindingCodeStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textSize="14sp" android:textColor="@color/text_secondary" />
+  <EditText android:id="@+id/bindingCode" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="12dp" android:hint="新邮箱收到的 6 位验证码" android:inputType="number" android:singleLine="true" android:paddingHorizontal="16dp" android:maxLength="6" android:saveEnabled="false" android:textColor="@color/input_text" android:textColorHint="@color/input_hint" />
+  <com.luoyilin.focusguard.RaisedButton android:id="@+id/bindingConfirm" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="20dp" android:text="确认换绑" android:textColor="@color/on_primary" />
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="换绑后使用新邮箱登录，专注记录和备份仍属于同一个账号。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+  <ProgressBar android:id="@+id/bindingProgress" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center_horizontal" android:layout_marginTop="16dp" android:visibility="gone" />
+  <Button android:id="@+id/bindingBack" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="16dp" android:text="返回" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary"  android:visibility="gone" />
+ </LinearLayout>
+</ScrollView>

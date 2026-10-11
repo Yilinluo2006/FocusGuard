@@ -1,0 +1,19 @@
+<resources>
+    <color name="input_text">#F5F2EA</color>
+    <color name="input_hint">#C0B9A9</color>
+    <color name="page_background">#0D0D0D</color>
+    <color name="surface_background">#2A2A2A</color>
+    <color name="secondary_surface">#333333</color>
+    <color name="text_primary">#F5F2EA</color>
+    <color name="text_secondary">#C0B9A9</color>
+    <color name="accent_text">#E2C784</color>
+    <color name="primary_button">#D9BC79</color>
+    <color name="raised_button_shadow">#7F602E</color>
+    <color name="raised_button_pressed">#C7A765</color>
+    <color name="on_primary">#191711</color>
+    <color name="success_text">#E2C784</color>
+    <color name="danger_text">#FFABA4</color>
+    <color name="warning_text">#FFD08A</color>
+    <color name="outline">#666666</color>
+    <color name="divider">#414141</color>
+</resources>

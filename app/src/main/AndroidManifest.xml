@@ -3,16 +3,25 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" /> <!-- 允许应用访问后端网络接口 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <queries>
+        <intent><action android:name="android.service.wallpaper.WallpaperService" /></intent>
+        <package android:name="com.tencent.mm" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <intent><action android:name="android.intent.action.DIAL" /></intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
 
@@ -31,6 +40,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FocusGuard"
         android:usesCleartextTraffic="true">
+        <activity android:name=".WechatAuthActivity" android:exported="false" android:launchMode="singleTop" android:configChanges="orientation|screenSize" />
+        <activity android:name=".wxapi.WXEntryActivity" android:exported="true" android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}" android:theme="@style/Theme.AppCompat.Translucent" />
+        <service android:name=".CloudBackupJobService" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <activity android:name=".DeviceSyncActivity" android:exported="false" />
+        <service android:name=".DeviceSyncService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Synchronizes account settings, app usage statistics and sleep emergency use while user-enabled device synchronization is active." />
+        </service>
+        <receiver android:name=".StreakWidget" android:exported="false"
+            android:label="奶蛙ToDo 连续坚持">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/streak_widget" />
+        </receiver>
         <provider
             android:name=".LimitConfigProvider"
             android:authorities="${applicationId}.limits"
@@ -38,6 +63,9 @@
         <activity
             android:name=".EmailVerificationActivity"
             android:exported="false" />
+        <activity android:name=".ProfileActivity" android:exported="false" />
+        <activity android:name=".PhoneAuthActivity" android:exported="false" />
+        <activity android:name=".EmailBindingActivity" android:exported="false" />
         <!-- 注册邮箱验证页面，只允许应用内部打开 -->
 
         <activity
@@ -54,9 +82,18 @@
         <activity
             android:name=".AppManageActivity"
             android:exported="false" />
+        <activity android:name=".ProtectionRecoveryActivity" android:exported="false" />
+        <activity android:name=".ProtectionDashboardActivity" android:exported="false" />
+        <activity android:name=".PageMonitoringActivity" android:exported="false" />
+        <activity android:name=".WallpaperGuardActivity" android:exported="false" />
+        <activity
+            android:name=".AccountBackupActivity"
+            android:exported="false" />
         <activity
             android:name=".BlockedActivity"
             android:exported="false" />
+        <activity android:name=".FocusModeActivity" android:exported="false"
+            android:process=":guard" />
 
         <service
             android:name=".ProtectionService"
@@ -72,7 +109,7 @@
 
         <service
             android:name=".FocusWallpaperService"
-            android:label="FocusGuard Test Wallpaper"
+            android:label="奶蛙ToDo 壁纸守护"
             android:exported="true"
             android:permission="android.permission.BIND_WALLPAPER"
             android:process=":guard"

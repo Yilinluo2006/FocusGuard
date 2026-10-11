@@ -1,6 +1,15 @@
 package com.luoyilin.focusguard.network;
 
 public class LoginResponse {
+    private boolean wechatVerified;
+    public boolean isWechatVerified() { return wechatVerified; }
+    private String phone;
+    private Boolean hasPassword;
+    public String getPhone() { return phone; }
+    public boolean hasPassword() { return hasPassword==null ? email!=null : hasPassword; }
+    private String displayName, avatarKey;
+    public String getDisplayName() { return displayName == null || displayName.trim().isEmpty() ? username : displayName; }
+    public String getAvatarKey() { return avatarKey; }
 
     private String token;
     // 保存后端生成的 JWT

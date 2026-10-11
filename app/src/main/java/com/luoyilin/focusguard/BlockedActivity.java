@@ -27,7 +27,7 @@ public class BlockedActivity extends AppCompatActivity {
         }
         // 如果没有传入应用名称，就使用默认文字
 
-        tvBlockedMessage.setText(appName + " 今日使用时间已达到限制");
+        tvBlockedMessage.setText(SharedQuota.blockedMessage(this, appName));
         // 显示阻断原因
     }
 }

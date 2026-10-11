@@ -84,6 +84,7 @@ public class EmailVerificationActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_email_verification);
+        SecondaryPage.show(this, ((android.view.ViewGroup)findViewById(android.R.id.content)).getChildAt(0), "验证邮箱", () -> getOnBackPressedDispatcher().onBackPressed());
         // 加载注册邮箱验证页面的 XML 布局
 
         verificationPreferences = getSharedPreferences(

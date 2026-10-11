@@ -1,0 +1,5 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="0" android:startColor="@color/home_countup_start"
+        android:endColor="@color/home_countup_end" />
+    <corners android:radius="@dimen/home_card_radius" />
+</shape>

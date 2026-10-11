@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:clipToOutline="true"
+    android:background="@drawable/streak_widget_background">
+    <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/streak_widget_texture" android:scaleType="fitXY"
+        android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="horizontal" android:importantForAccessibility="noHideDescendants">
+        <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.38" />
+        <ImageView android:id="@+id/widgetMascot" android:layout_width="0dp" android:layout_weight="0.62"
+            android:layout_height="match_parent" android:src="@drawable/streak_mascot"
+            android:scaleType="centerCrop" android:translationX="20dp" />
+    </LinearLayout>
+    <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/streak_mascot_shade" android:scaleType="fitXY" android:alpha="0.35"
+        android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingHorizontal="14dp" android:paddingVertical="8dp">
+    <LinearLayout android:layout_width="0dp" android:layout_weight="0.65"
+        android:layout_height="wrap_content" android:orientation="vertical">
+    <TextView android:id="@+id/widgetDays" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textSize="20sp"
+        android:textColor="#FFFFFF" android:textStyle="bold" />
+    <TextView android:id="@+id/widgetWarning" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="2dp"
+        android:textSize="11sp" android:textColor="#FFB3AA" android:visibility="gone" />
+    <TextView android:id="@+id/widgetToday" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:textSize="12sp" android:textColor="#FFFFFF" android:maxLines="3" />
+    <ProgressBar android:id="@+id/widgetProgress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="6dp"
+        android:layout_marginTop="8dp" android:indeterminate="false" android:visibility="gone"
+        android:progressDrawable="@drawable/streak_widget_progress" android:max="1000" />
+    <LinearLayout android:id="@+id/widgetWeek" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+        android:orientation="horizontal" android:baselineAligned="false" />
+    </LinearLayout>
+    <TextView android:layout_width="0dp" android:layout_weight="0.35"
+        android:layout_height="1dp" android:layout_marginStart="6dp" />
+    </LinearLayout>
+</FrameLayout>

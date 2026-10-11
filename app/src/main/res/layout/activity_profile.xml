@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/profilePage"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/page_background">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+  
+  <ImageView android:id="@+id/profileAvatar" android:layout_width="112dp" android:layout_height="112dp" android:layout_gravity="center_horizontal" android:layout_marginTop="28dp" android:contentDescription="当前头像" />
+  <Button android:id="@+id/profileChooseAvatar" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:text="选择头像" android:backgroundTint="@android:color/transparent" android:textColor="@color/accent_text" />
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="昵称" android:textSize="16sp" android:textColor="@color/text_secondary" />
+  <EditText android:id="@+id/profileName" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="8dp" android:hint="小奶娃" android:inputType="textPersonName" android:singleLine="true" android:paddingHorizontal="16dp" android:textColor="@color/input_text" android:textColorHint="@color/input_hint" android:maxLength="48" />
+  <com.luoyilin.focusguard.RaisedButton android:id="@+id/profileSave" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="20dp" android:text="保存资料" android:textColor="@color/on_primary" />
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp" android:layout_marginTop="28dp" android:background="@drawable/surface_rounded">
+   <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="登录与绑定" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
+   <TextView android:id="@+id/profileEmail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textSize="16sp" android:textColor="@color/text_primary" />
+   <Button android:id="@+id/profileBindEmail" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:text="更换绑定邮箱" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
+   <TextView android:id="@+id/profilePhone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="16sp" android:textColor="@color/text_primary" />
+   <Button android:id="@+id/profileBindPhone" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:text="绑定手机号" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
+   <TextView android:id="@+id/profileWechat" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="16sp" android:textColor="@color/text_primary" />
+   <Button android:id="@+id/profileBindWechat" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:text="绑定微信" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
+  </LinearLayout>
+  <TextView android:id="@+id/profileAccountId" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="13sp" android:textColor="@color/text_secondary" />
+  <ProgressBar android:id="@+id/profileProgress" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center_horizontal" android:layout_marginTop="16dp" android:visibility="gone" />
+  <Button android:id="@+id/profileBack" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="16dp" android:text="返回" android:background="@drawable/button_rounded" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary"  android:visibility="gone" />
+ </LinearLayout>
+</ScrollView>

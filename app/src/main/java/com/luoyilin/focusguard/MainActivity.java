@@ -1,43 +1,91 @@
 package com.luoyilin.focusguard;
 
 import android.app.AppOpsManager;
-import android.app.usage.UsageEvents;
-import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Process;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import java.util.Calendar;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import android.widget.Toast;
 
-import com.luoyilin.focusguard.sync.LimitSyncManager;
-// 统一负责从后端下载限制规则并保存到 SharedPreferences
 
 //        跳转到应用管理页
 //        跳转到权限引导页
 //        显示所有受限应用的今日总使用时长
 //        处理状态栏和导航栏边距
 
-import com.luoyilin.focusguard.auth.SessionManager;
 
 public class MainActivity extends AppCompatActivity {
+    private HomeNavigation navigation;
+    private ThemeReveal.Cover themeReveal;
+    @Override protected void onSaveInstanceState(Bundle out) {
+        if (navigation != null) navigation.save(out);
+        super.onSaveInstanceState(out);
+    }
+    private final android.os.Handler protectionHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private long shownQuotaDay = Long.MIN_VALUE;
+    private boolean protectionWarningShown;
+    private androidx.appcompat.app.AlertDialog protectionDialog;
+    private final SharedPreferences.OnSharedPreferenceChangeListener syncChanges = (prefs, key) -> {
+        if (navigation != null && ("revision".equals(key) || "pendingSleep".equals(key))) navigation.refresh();
+    };
+    private final Runnable protectionCheck = new Runnable() {
+        @Override public void run() {
+            updateAccessibilityStatus();
+            long quotaDay = StreakLedger.day(System.currentTimeMillis(), java.time.ZoneId.systemDefault());
+            if (shownQuotaDay != quotaDay) {
+                shownQuotaDay = quotaDay;
+                updateTodayUsage();
+                if (navigation != null) navigation.refresh();
+            }
+            if (navigation != null) navigation.refreshStatus();
+            StreakUi.refresh(MainActivity.this);
+            ProtectionWarning.refresh(MainActivity.this);
+            ProtectionCapabilities availability = ProtectionRecovery.capabilities(MainActivity.this);
+            boolean healthy = availability.daily && availability.sleep && availability.focus;
+            if (!healthy) CoverageStore.sample(MainActivity.this, false);
+            if (healthy) {
+                protectionWarningShown = false;
+                if (protectionDialog != null) protectionDialog.dismiss();
+            } else if (!protectionWarningShown && ProtectionRecovery.needed(MainActivity.this)) {
+                protectionWarningShown = true;
+                protectionDialog = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                        .setTitle("保护已暂停")
+                        .setMessage(ProtectionRecovery.explanation(MainActivity.this))
+                        .setNegativeButton("稍后处理", null)
+                        .setPositiveButton("去恢复保护", (d, w) -> startActivity(
+                                new Intent(MainActivity.this, ProtectionRecoveryActivity.class))).show();
+            }
+            protectionHandler.postDelayed(this, 5000);
+        }
+    };
+
+    @Override protected void onPause() {
+        DeviceSyncManager.prefs(this).unregisterOnSharedPreferenceChangeListener(syncChanges);
+        if (themeReveal != null) themeReveal.finish();
+        protectionHandler.removeCallbacks(protectionCheck);
+        if (protectionDialog != null) protectionDialog.dismiss();
+        super.onPause();
+    }
+    @Override protected void onDestroy() {
+        if (themeReveal != null) themeReveal.finish();
+        if (navigation != null) navigation.dispose();
+        super.onDestroy();
+    }
     private static final String PREF_NAME = "focus_guard_prefs";
     // SharedPreferences 文件名
 
@@ -45,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
     // 已选择应用包名集合的 key
 
     private TextView tvTodayUsage;
+    private View usageSummaryCard;
     // 保存首页“今日使用时长”控件
 
     private TextView tvCurrentAccount;
@@ -56,29 +105,21 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        SessionManager sessionManager = new SessionManager(this);
-        // 创建登录状态管理对象
-
-        if (!sessionManager.isLoggedIn()) {
-            openLoginAndClearTask();
-            // 未登录时进入登录页，并清空旧页面栈
-            return;
-            // 停止继续执行首页的初始化代码
-        }
-
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        findViewById(R.id.btnAppearance).setOnClickListener(v -> Appearance.choose(this));
+        findViewById(R.id.btnFocusMode).setOnClickListener(v ->
+                startActivity(new Intent(this, FocusModeActivity.class)));
         // 加载首页布局
 
         tvTodayUsage = findViewById(R.id.tvTodayUsage);
+        usageSummaryCard = findViewById(R.id.usageSummaryCard);
         // 找到显示今日使用时长的 TextView
 
         tvCurrentAccount = findViewById(R.id.tvCurrentAccount);
         // 找到显示当前账号的 TextView
 
-        showCurrentAccount(sessionManager);
-        // 优先显示邮箱；邮箱为空时显示用户名
-
+        tvCurrentAccount.setText("本地模式 · 无需登录");
         Button btnManageApps = findViewById(R.id.btnManageApps);
         // 找到应用限制管理按钮
 
@@ -86,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
         // 找到使用情况访问权限按钮
 
         Button btnLogout = findViewById(R.id.btnLogout);
-        // 找到首页中的“退出登录”按钮
+        // 保留原控件 ID，入口改为本机保存状态页。
 
         btnManageApps.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, AppManageActivity.class);
@@ -104,11 +145,13 @@ public class MainActivity extends AppCompatActivity {
             // 打开权限引导页面
         });
 
-        btnLogout.setOnClickListener(
-                v -> showLogoutConfirmation(sessionManager)
-        );
-        // 点击退出按钮时先显示确认弹窗，避免误操作
+        btnLogout.setOnClickListener(v ->
+                startActivity(new Intent(this, AccountBackupActivity.class)));
 
+        navigation = new HomeNavigation(this, savedInstanceState, () -> {
+            updateTodayUsage();
+            StreakUi.refresh(this);
+        });
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             // 获取状态栏和导航栏占用区域
@@ -117,76 +160,44 @@ public class MainActivity extends AppCompatActivity {
                     systemBars.left,
                     systemBars.top,
                     systemBars.right,
-                    systemBars.bottom
+                    Math.max(systemBars.bottom, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
             );
             // 给页面设置内边距，避免内容被系统栏遮挡
 
             return insets;
         });
+        themeReveal = ThemeReveal.attach(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        ProtectionRecovery.delayed(this, "app_resume");
+        DeviceSyncManager.prefs(this).registerOnSharedPreferenceChangeListener(syncChanges);
+        com.luoyilin.focusguard.auth.SessionManager account = new com.luoyilin.focusguard.auth.SessionManager(this);
+        tvCurrentAccount.setText(account.isLoggedIn() ? account.getUsername() : account.isSessionExpired() ? "登录已过期" : "未登录");
+        CloudBackupManager.reconcile(this);
+        DeviceSyncManager.request(this);
         // 每次首页显示时都会执行，例如首次打开应用或从其他页面返回
-
-        SessionManager sessionManager = new SessionManager(this);
-
-        if (!sessionManager.isLoggedIn()) {
-            openLoginAndClearTask();
-            return;
-        }
-        // 登录状态失效后不再显示首页，也不继续请求后端
 
         if (FocusAccessibilityService.isEnabled(this)) {
             ProtectionService.start(this);
         }
         updateAccessibilityStatus();
-        btnUsagePermission.postDelayed(this::updateAccessibilityStatus, 800L);
+        protectionHandler.removeCallbacks(protectionCheck);
+        protectionHandler.postDelayed(protectionCheck, 2000L);
         // 页面可见时主动确保前台保护运行，并在跨进程启动完成后再次刷新。
 
         updateTodayUsage();
+        shownQuotaDay = StreakLedger.day(System.currentTimeMillis(), java.time.ZoneId.systemDefault());
+        StreakUi.refresh(this);
         // 先使用当前本地缓存更新页面，避免等待网络时页面没有内容
 
-        LimitSyncManager.syncFromServer(
-                this,
-                new LimitSyncManager.SyncCallback() {
-
-                    @Override
-                    public void onSuccess(int enabledCount) {
-                        if (isFinishing() || isDestroyed()) {
-                            return;
-                        }
-                        // 页面已经关闭时不再更新控件或显示提示
-
-                        updateTodayUsage();
-                        // 同步完成后重新计算，因为受限制应用可能已经发生变化
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                "已同步 " + enabledCount + " 个限制",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                        // 显示本次从后端同步到的启用规则数量
-                    }
-
-                    @Override
-                    public void onFailure(String message) {
-                        if (isFinishing() || isDestroyed()) {
-                            return;
-                        }
-                        // 页面已经关闭时忽略迟到的失败回调
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                "同步失败，继续使用本地配置：" + message,
-                                Toast.LENGTH_LONG
-                        ).show();
-                        // 网络失败时不清空旧规则，继续使用上一次成功同步的数据
-                    }
-                }
-        );
-        // 异步请求后端，不会阻塞安卓界面
+        if (navigation != null) navigation.refresh();
+        if (SetupStatus.claimIntroduction(this)) {
+            startActivity(new Intent(this, PermissionGuideActivity.class)
+                    .putExtra(PermissionGuideActivity.EXTRA_FIRST_SETUP, true));
+        }
     }
 
     private void updateAccessibilityStatus() {
@@ -194,84 +205,17 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        boolean accessibilityEnabled = FocusAccessibilityService.isEnabled(this);
-        boolean accessibilityRunning = FocusAccessibilityService.isRunning(this);
-        // 同时检查系统开关和服务的真实绑定状态
-
-        if (accessibilityEnabled && accessibilityRunning) {
-            btnUsagePermission.setText("检查并管理必要权限");
-        } else if (accessibilityEnabled) {
-            btnUsagePermission.setText("无障碍已开启，点击检查保护状态");
-            // 授权存在但心跳尚未恢复时进入状态中心继续诊断，不误报为故障。
-        } else {
-            btnUsagePermission.setText("重新开启无障碍服务");
-            // 系统已经关闭授权时明确提示用户重新开启，普通应用不能静默代开
-        }
-    }
-
-    private void showCurrentAccount(SessionManager sessionManager) {
-        String email = sessionManager.getEmail();
-        String username = sessionManager.getUsername();
-        // 读取当前登录用户的邮箱和用户名
-
-        if (email != null && !email.trim().isEmpty()) {
-            tvCurrentAccount.setText("当前账号：" + email.trim());
-            return;
-        }
-        // 登录响应中有邮箱时优先显示邮箱
-
-        if (username != null && !username.trim().isEmpty()) {
-            tvCurrentAccount.setText("当前账号：" + username.trim());
-            return;
-        }
-        // 邮箱为空时使用用户名作为备用显示内容
-
-        tvCurrentAccount.setText("当前账号");
-        // 两项信息都为空时显示通用文字
-    }
-
-    private void showLogoutConfirmation(SessionManager sessionManager) {
-        new AlertDialog.Builder(this)
-                .setTitle("退出登录")
-                .setMessage("退出后将清除当前账号在本机保存的登录信息和应用限制缓存。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton(
-                        "退出",
-                        (dialog, which) -> performLogout(sessionManager)
-                )
-                .show();
-        // 用户确认后才真正退出，点击取消则保持当前登录状态
-    }
-
-    private void performLogout(SessionManager sessionManager) {
-        sessionManager.clearSession();
-        // 先清除 JWT 和用户信息，让正在执行的旧同步请求立即失效
-
-        LimitSyncManager.clearLocalCache(this);
-        // 清除当前账号留在手机上的应用限制缓存，避免下个账号短暂看到旧数据
-
-        openLoginAndClearTask();
-        // 打开登录页面并清空页面栈，防止返回键重新进入首页
-    }
-
-    private void openLoginAndClearTask() {
-        Intent intent = new Intent(this, LoginActivity.class);
-        // 创建跳转到登录页面的 Intent
-
-        intent.setFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_CLEAR_TASK
-        );
-        // 清空原页面栈，使登录页面成为新的根页面
-
-        startActivity(intent);
-        finish();
-        // 打开登录页并关闭当前首页
+        SetupStatus setup = new SetupStatus(this);
+        int complete = setup.completed();
+        btnUsagePermission.setText(complete == 4 ? "查看必要设置  ›" : "去开启必要设置  ›");
+        TextView entryStatus = findViewById(R.id.setupEntryStatus);
+        if (entryStatus != null) entryStatus.setText(complete == 4 ? "已就绪" : complete + " / 4 已完成");
     }
 
     private void updateTodayUsage() {
         if (!hasUsageAccessPermission()) {
             tvTodayUsage.setText("请先开启权限");
+            usageSummaryCard.setContentDescription("受限应用使用汇总，使用情况权限未开启");
             return;
         }
         // 没有使用情况访问权限时，显示权限提示
@@ -279,95 +223,25 @@ public class MainActivity extends AppCompatActivity {
         long usageTimeMillis = getTodayTotalUsageTime();
         // 获取已限制应用的今日总使用时间
 
-        tvTodayUsage.setText(formatUsageTime(usageTimeMillis));
+        tvTodayUsage.setText(MetricText.emphasize(formatUsageTime(usageTimeMillis), 1.2f));
+        usageSummaryCard.setContentDescription("受限应用今日已用 "
+                + formatUsageTime(usageTimeMillis));
         // 把毫秒转换成小时和分钟后显示
     }
 
     private long getTodayTotalUsageTime() {
         Set<String> selectedPackages = getSavedSelectedPackageNames();
-        // 读取已选择限制的应用包名集合
-
-        if (selectedPackages.isEmpty()) {
-            return 0;
-        }
-        // 如果还没有选择任何限制应用，返回 0
-
-        UsageStatsManager usageStatsManager =
-                (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        // 获取 UsageStatsManager 系统服务
-
-        if (usageStatsManager == null) {
-            return 0;
-        }
-        // 无法获取系统服务时返回 0
-
-        Calendar calendar = Calendar.getInstance();
-        // 获取当前日期和时间
-
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        // 将时间调整到今天凌晨 00:00
-
-        long startTime = calendar.getTimeInMillis();
-        long endTime = System.currentTimeMillis();
-        // 设置统计时间范围：今天凌晨到当前时间
-
-        UsageEvents usageEvents = usageStatsManager.queryEvents(startTime, endTime);
-        // 获取今天所有应用进入和离开前台的事件
-
-        Map<String, Long> foregroundStartMap = new HashMap<>();
-        // 记录每个受限应用最近一次进入前台的时间
-
-        long totalUsageTime = 0;
-
-        UsageEvents.Event event = new UsageEvents.Event();
-        while (usageEvents.hasNextEvent()) {
-            usageEvents.getNextEvent(event);
-            String packageName = event.getPackageName();
-
-            if (packageName == null || !selectedPackages.contains(packageName)) {
-                continue;
-            }
-            // 忽略未受限应用，只统计当前勾选的应用
-
-            int eventType = event.getEventType();
-            boolean enteredForeground = eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
-                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                    && eventType == UsageEvents.Event.ACTIVITY_RESUMED);
-            boolean enteredBackground = eventType == UsageEvents.Event.MOVE_TO_BACKGROUND
-                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                    && eventType == UsageEvents.Event.ACTIVITY_PAUSED);
-
-            if (enteredForeground) {
-                foregroundStartMap.putIfAbsent(packageName, event.getTimeStamp());
-                // 保存进入前台的时间，重复的前台事件不会重复开始计时
-            } else if (enteredBackground) {
-                Long foregroundStart = foregroundStartMap.remove(packageName);
-                if (foregroundStart == null) {
-                    continue;
-                }
-
-                long duration = event.getTimeStamp() - foregroundStart;
-                if (duration > 0) {
-                    totalUsageTime += duration;
-                }
-                // 应用离开前台时，累加这一段实际使用时间
-            }
-        }
-
-        for (Long foregroundStart : foregroundStartMap.values()) {
-            long duration = endTime - foregroundStart;
-            if (duration > 0) {
-                totalUsageTime += duration;
-            }
-        }
-        // 如果某个受限应用当前仍在前台，把最后一段时间统计到现在
-
-        long elapsedToday = endTime - startTime;
-        return Math.max(0, Math.min(totalUsageTime, elapsedToday));
-        // 总时长不会超过今天已经过去的时间，防止异常事件造成错误的大数值
+        if (selectedPackages.isEmpty()) return 0;
+        long now = System.currentTimeMillis();
+        Map<String, Long> usage = AppUsageReader.totals(this, now, selectedPackages);
+        if (usage == null) return 0;
+        if (DeviceSyncManager.strictQuota(this)) usage = DeviceSyncManager.combinedToday(this, usage);
+        long total = 0;
+        for (String pkg : selectedPackages) total += usage.getOrDefault(pkg, 0L);
+        if (DeviceSyncManager.strictQuota(this)) return total;
+        long start = StreakLedger.boundary(StreakLedger.day(now, java.time.ZoneId.systemDefault()),
+                java.time.ZoneId.systemDefault());
+        return Math.max(0, Math.min(total, now - start));
     }
 
     private Set<String> getSavedSelectedPackageNames() {

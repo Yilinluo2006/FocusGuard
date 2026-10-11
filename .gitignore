@@ -13,3 +13,24 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local IDE state, logs, temporary output, and Android SDK copies
+/.idea/
+/.temp/
+/.codex-build.log
+/.knownPackages
+/build-tools/
+/emulator/
+/extras/
+/licenses/
+/platform-tools/
+/platforms/
+/sources/
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12

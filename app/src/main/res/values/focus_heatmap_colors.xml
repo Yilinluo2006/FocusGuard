@@ -1,0 +1,7 @@
+<resources>
+    <color name="focus_heatmap_0">#ECEAE5</color>
+    <color name="focus_heatmap_1">#F1E5C5</color>
+    <color name="focus_heatmap_2">#DBC186</color>
+    <color name="focus_heatmap_3">#B58A38</color>
+    <color name="focus_heatmap_4">#8A621A</color>
+</resources>

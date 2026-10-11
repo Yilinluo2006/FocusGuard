@@ -20,6 +20,7 @@ android {
     defaultConfig {
         buildConfigField 'String', 'API_BASE_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('focusguardApiUrl').getOrElse(localConfig.getProperty('focusguard.apiUrl', 'http://192.168.10.21:8080/')))
         applicationId "com.luoyilin.focusguard"
+        buildConfigField 'String', 'WECHAT_APP_ID', groovy.json.JsonOutput.toJson(providers.gradleProperty('focusguardWechatAppId').getOrElse('wxbc866bf990e09da5'))
         minSdk 26
         targetSdk 36
         versionCode 1
@@ -41,11 +42,15 @@ android {
 }
 
 dependencies {
+    implementation 'com.tencent.mm.opensdk:wechat-sdk-android:6.8.40'
+    implementation 'androidx.viewpager:viewpager:1.0.0'
     implementation libs.activity.ktx
     implementation libs.appcompat
     implementation libs.constraintlayout
     implementation libs.material
     testImplementation libs.junit
+    // Real JSON implementation for portable backup validation and recovery tests on the JVM.
+    testImplementation 'org.json:json:20240303'
     androidTestImplementation libs.espresso.core
     androidTestImplementation libs.ext.junit
     implementation libs.retrofit.core

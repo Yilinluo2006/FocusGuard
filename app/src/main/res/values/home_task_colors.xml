@@ -1,0 +1,19 @@
+<resources>
+    <color name="home_countdown_start">#DFE9F5</color>
+    <color name="home_countdown_end">#F5F7FB</color>
+    <color name="home_countup_start">#DCEDE4</color>
+    <color name="home_countup_end">#F2F7F1</color>
+    <color name="home_pomodoro_start">#F3DDDC</color>
+    <color name="home_pomodoro_end">#FAF3F0</color>
+    <color name="home_countdown_accent">#405D82</color>
+    <color name="home_countup_accent">#315F4F</color>
+    <color name="home_pomodoro_accent">#874C59</color>
+    <color name="home_countdown_border">#CCD9E9</color>
+    <color name="home_countup_border">#C7DED2</color>
+    <color name="home_pomodoro_border">#E8CBCC</color>
+    <color name="home_task_on_accent">#FFFFFF</color>
+    <color name="home_task_text">#202C36</color>
+    <color name="home_task_secondary">#53616B</color>
+    <color name="home_task_action_surface">#14000000</color>
+    <color name="home_task_ripple">#18000000</color>
+</resources>

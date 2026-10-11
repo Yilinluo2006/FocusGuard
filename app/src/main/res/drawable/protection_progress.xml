@@ -1,0 +1,10 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape><solid android:color="@color/secondary_surface" /><corners android:radius="4dp" /></shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <scale android:scaleWidth="100%" android:scaleGravity="start">
+            <shape><solid android:color="@color/success_text" /><corners android:radius="4dp" /></shape>
+        </scale>
+    </item>
+</layer-list>

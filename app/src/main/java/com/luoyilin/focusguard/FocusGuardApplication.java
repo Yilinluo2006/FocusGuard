@@ -15,11 +15,16 @@ public class FocusGuardApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        ProtectionClock.initialize(this);
+        Appearance.initialize(this);
         // 先执行 Android Application 原本的初始化逻辑
 
         if (isMainProcess()) {
             LimitSnapshot.publish(this);
             RetrofitClient.initialize(this);
+            CloudBackupManager.initialize(this);
+            DeviceSyncManager.initialize(this);
+            ComplianceAudit.request(this, true);
             // :guard 只负责限制服务，不初始化网络栈，降低常驻进程内存。
         }
     }

@@ -1,0 +1,12 @@
+<resources>
+    <item name="deviceSyncEntry" type="id" />
+    <item name="deviceSyncToggle" type="id" />
+    <item name="deviceSyncNow" type="id" />
+    <item name="statisticsUsageAll" type="id" />
+    <item name="statisticsUsagePhone" type="id" />
+    <item name="statisticsUsageTablet" type="id" />
+    <item name="homePager" type="id" />
+    <item name="homeNavigation" type="id" />
+    <item name="homeThemeToggle" type="id" />
+    <item name="setupEntryStatus" type="id" />
+</resources>

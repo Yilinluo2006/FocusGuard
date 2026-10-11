@@ -1,0 +1,9 @@
+<resources>
+    <item name="pageMonitoringEntry" type="id" />
+    <item name="pageMonitoringConsent" type="id" />
+    <item name="pageMonitoringAuthorize" type="id" />
+    <item name="pageMonitoringRevoke" type="id" />
+    <item name="systemExitReminderEnabled" type="id" />
+    <item name="systemExitReminderContinue" type="id" />
+    <item name="systemExitReminderReturn" type="id" />
+</resources>

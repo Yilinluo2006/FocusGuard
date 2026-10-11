@@ -1,0 +1,8 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/divider">
+    <item>
+        <shape>
+            <solid android:color="@color/secondary_surface" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+</ripple>

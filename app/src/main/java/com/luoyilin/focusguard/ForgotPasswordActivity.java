@@ -82,6 +82,7 @@ public class ForgotPasswordActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_forgot_password);
+        SecondaryPage.show(this, ((android.view.ViewGroup)findViewById(android.R.id.content)).getChildAt(0), "找回密码", () -> getOnBackPressedDispatcher().onBackPressed());
         // 加载忘记密码页面的 XML 布局
 
         resetPreferences = getSharedPreferences(

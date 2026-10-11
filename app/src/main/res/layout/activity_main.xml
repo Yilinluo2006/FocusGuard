@@ -4,7 +4,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F8FA"
+    android:background="@color/page_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -14,78 +14,87 @@
         android:padding="24dp">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="FocusGuard"
-            android:textColor="#1F2937"
-            android:textSize="30sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="管理应用使用时间，保持专注"
-            android:textColor="#6B7280"
-            android:textSize="15sp" />
-
-        <TextView
             android:id="@+id/tvCurrentAccount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="当前账号"
-            android:textColor="#4B5563"
+            android:text="本地模式 · 无需登录"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp" />
-        <!-- 显示当前登录账号，邮箱过长时在末尾省略 -->
-
-        <LinearLayout
+        <TextView
+            android:id="@+id/tvCloudStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:background="#FFFFFF"
-            android:elevation="2dp"
+            android:layout_marginTop="8dp"
+            android:text="使用本机配置"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:accessibilityLiveRegion="polite"
+            android:textSize="16sp" />
+        <TextView android:id="@+id/tvStreak"
+            android:visibility="gone"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:minHeight="64dp"
+            android:gravity="center_vertical" android:text="— 天"
+            android:textSize="18sp"
+            android:textColor="@color/success_text" android:clickable="true"
+            android:focusable="true" android:background="?attr/selectableItemBackground" />
+        <LinearLayout
+            android:id="@+id/usageSummaryCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/page_card_background"
+            android:clipToOutline="true"
             android:orientation="vertical"
-            android:padding="20dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="受限应用今日使用时长"
-                android:textColor="#6B7280"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tvTodayUsage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="0 小时 0 分钟"
-                android:textColor="#111827"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+            android:padding="16dp">
+            <LinearLayout android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="本机受限应用今日已用"
+                    android:textColor="@color/text_secondary" android:textSize="14sp" />
+                <TextView
+                    android:id="@+id/tvTodayUsage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="end"
+                    android:text="0 分钟"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp" />
+            </LinearLayout>
         </LinearLayout>
 
-        <Button
+        <com.luoyilin.focusguard.RaisedButton
             android:id="@+id/btnManageApps"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
-            android:backgroundTint="#2563EB"
             android:text="管理应用限制"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/on_primary"
             android:textSize="16sp" />
 
-        <Button
+        <com.luoyilin.focusguard.RaisedButton
             android:id="@+id/btnUsagePermission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/surface_background"
+            android:text="查看必要设置  ›"
+            android:textColor="@color/accent_text"
+            android:textSize="16sp" />
+
+        <com.luoyilin.focusguard.RaisedButton
+            android:id="@+id/btnFocusMode"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="#FFFFFF"
-            android:text="设置使用情况访问权限"
-            android:textColor="#2563EB"
+            android:text="专注与睡眠计划"
+            android:textColor="@color/on_primary"
             android:textSize="16sp" />
 
         <!-- 退出当前账号 -->
@@ -94,10 +103,16 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="#FFFFFF"
-            android:text="退出登录"
-            android:textColor="#DC2626"
+            android:backgroundTint="@color/surface_background"
+            android:text="账号与备份"
+            android:textColor="@color/accent_text"
             android:textSize="16sp" />
 
-    </LinearLayout>
+
+        <Button android:id="@+id/btnAppearance"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:text="外观模式"
+            android:backgroundTint="@color/secondary_surface"
+            android:textColor="@color/text_primary" />
+</LinearLayout>
 </ScrollView>

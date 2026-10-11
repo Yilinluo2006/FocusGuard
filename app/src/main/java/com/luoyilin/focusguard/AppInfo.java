@@ -94,7 +94,7 @@ public class AppInfo {
     }
 
     public String getUsageAndLimitText() {
-        return "今日使用：" + formatUsageTime(todayUsageMillis) + " / " + getLimitText();
+        return "本轮已用：" + formatUsageTime(todayUsageMillis) + " / " + getLimitText();
         // 返回列表中展示的使用时长和限制时间
     }
 

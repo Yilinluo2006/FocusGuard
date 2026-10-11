@@ -33,6 +33,9 @@ final class RemainingTimeOverlay {
     private TextView label;
     private String iconPackage;
     private long deadline;
+    private boolean offline;
+    private boolean temporary;
+    private boolean sleepTemporary;
     private WindowManager.LayoutParams params;
     private boolean rightEdge = true;
     private int savedY = -1;
@@ -52,23 +55,24 @@ final class RemainingTimeOverlay {
                 return;
             }
             long remaining = Math.max(0, deadline - SystemClock.elapsedRealtime());
+            if (sleepTemporary && remaining == 0) { hide(); return; }
             boolean lastMinute = remaining > 0 && remaining <= 60_000;
             boolean urgent = remaining <= 10_000;
-            if (lastMinute && iconPackage != null) {
+            if (lastMinute && !offline && !temporary && iconPackage != null) {
                 String day = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(new Date());
                 if (!day.equals(warnings.getString(iconPackage, null))) {
                     warnings.edit().putString(iconPackage, day).apply();
                     warningUntil = SystemClock.elapsedRealtime() + 3000;
                 }
             }
-            boolean expanded = SystemClock.elapsedRealtime() < warningUntil;
+            boolean expanded = !offline && !temporary && SystemClock.elapsedRealtime() < warningUntil;
             label.setTextColor(urgent ? 0xFFFF7B7B : lastMinute ? 0xFFFFCE66 : Color.WHITE);
             label.setTypeface(Typeface.MONOSPACE, urgent ? Typeface.BOLD : Typeface.NORMAL);
-            label.setSingleLine(!expanded);
-            label.setText(expanded
+            label.setSingleLine(false);
+            label.setText(sleepTemporary ? "睡眠临时使用\n剩余 " + RemainingTimeFormat.format(remaining) : expanded
                     ? context.getString(R.string.last_minute_warning) + "\n"
-                            + RemainingTimeFormat.format(remaining)
-                    : RemainingTimeFormat.format(remaining));
+                            + QuotaPresentation.timer(remaining,false,false,SharedQuota.enabled(context))
+                    : QuotaPresentation.timer(remaining,temporary,offline,SharedQuota.enabled(context)));
             fitContent();
             handler.postDelayed(this, 1000);
         }
@@ -81,11 +85,36 @@ final class RemainingTimeOverlay {
     }
 
     void show(String packageName, long remainingMillis) {
+        show(packageName, remainingMillis, false);
+    }
+    void show(String packageName, long remainingMillis, boolean offline) {
+        show(packageName,remainingMillis,offline,false);
+    }
+    void showTemporary(String packageName,long remainingMillis){show(packageName,remainingMillis,false,true);}
+    void showSleepTemporary(android.os.Bundle state) {
+        PowerManager power = context.getSystemService(PowerManager.class);
+        KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
+        if (!state.getBoolean("sleeping") || state.getLong("remaining") <= 0
+                || power == null || !power.isInteractive() || (keyguard != null && keyguard.isKeyguardLocked())) {
+            hide(); return;
+        }
+        // Preserve the provider's sampled expiry: redisplaying an old state cannot add time.
+        long until = state.getLong("sampledElapsed", SystemClock.elapsedRealtime()) + state.getLong("remaining");
+        show(context.getPackageName(), Math.max(0, until - SystemClock.elapsedRealtime()), false, true, true, until);
+    }
+    private void show(String packageName,long remainingMillis,boolean offline,boolean temporary){
+        show(packageName, remainingMillis, offline, temporary, false, 0);
+    }
+    private void show(String packageName,long remainingMillis,boolean offline,boolean temporary,boolean sleepTemporary,long until){
+        this.offline = offline;
+        this.temporary = temporary;
+        this.sleepTemporary = sleepTemporary;
+        if (label != null && params.type != GuardWindow.type(context)) hide();
         if (remainingMillis <= 0) {
             hide();
             return;
         }
-        deadline = SystemClock.elapsedRealtime() + remainingMillis;
+        deadline = sleepTemporary ? until : SystemClock.elapsedRealtime() + remainingMillis;
         handler.removeCallbacks(tick);
         try {
             if (label == null) {
@@ -105,16 +134,16 @@ final class RemainingTimeOverlay {
                 view.setBackground(background);
                 params = new WindowManager.LayoutParams(
                         dp(56), dp(22),
-                        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                        GuardWindow.type(context),
                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                 | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                         PixelFormat.TRANSLUCENT);
                 params.gravity = Gravity.TOP | Gravity.LEFT;
-                params.y = savedY < 0 ? dp(120) : savedY;
+                params.y = savedY < 0 ? dp(sleepTemporary ? 72 : 120) : savedY;
                 snapToEdge();
-                params.setTitle("FocusGuard remaining time");
+                params.setTitle(sleepTemporary ? "FocusGuard sleep temporary time" : "FocusGuard remaining time");
                 view.setOnTouchListener((v, event) -> handleTouch(event));
-                windows.addView(view, params);
+                GuardWindow.manager(context).addView(view, params);
                 label = view;
             }
             if (!packageName.equals(iconPackage)) {

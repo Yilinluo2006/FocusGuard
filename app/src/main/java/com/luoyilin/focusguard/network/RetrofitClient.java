@@ -26,6 +26,7 @@ public final class RetrofitClient {
     // 私有构造方法，禁止外部创建 RetrofitClient 对象
 
     public static synchronized void initialize(Context context) {
+        NetworkEnvironment.initialize(context);
         if (focusGuardApi != null) {
             return;
         }

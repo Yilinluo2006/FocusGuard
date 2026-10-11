@@ -6,8 +6,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
@@ -36,16 +38,27 @@ public class ProtectionService extends Service {
     private static final int RESTART_REQUEST_CODE = 1002;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private Boolean lastAccessibilityHealthy;
+    private boolean lastDailyBackup;
     private final Runnable healthTask = new Runnable() {
         @Override
         public void run() {
             ProtectionStateStore.touchProtection(ProtectionService.this);
+            ProtectionWarning.refresh(ProtectionService.this);
+            boolean healthy = ProtectionWarning.healthy(ProtectionService.this);
+            boolean dailyBackup = ProtectionWarning.dailyBackupRunning(ProtectionService.this);
+            if (lastAccessibilityHealthy == null || lastAccessibilityHealthy != healthy || lastDailyBackup != dailyBackup) {
+                lastAccessibilityHealthy = healthy;
+                lastDailyBackup = dailyBackup;
+                getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, buildNotification(healthy));
+            }
+            if (!ProtectionWarning.healthy(ProtectionService.this)) CoverageStore.sample(ProtectionService.this, false);
             handler.postDelayed(this, HEALTH_INTERVAL_MILLIS);
         }
     };
 
     public static void start(Context context) {
-        if (!FocusAccessibilityService.isEnabled(context)) {
+        if (!FocusAccessibilityService.isEnabled(context) && !WallpaperGuard.available(context)) {
             return;
         }
 
@@ -65,7 +78,11 @@ public class ProtectionService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        Notification notification = buildNotification();
+        WallpaperQuotaMonitor.acquire(this, this);
+        ProtectionRecoveryObserver.acquire(this, this);
+        ProtectionStateStore.markProtectionRunning(this, true, "protection_created");
+        lastAccessibilityHealthy = ProtectionWarning.healthy(this);
+        Notification notification = buildNotification(lastAccessibilityHealthy);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                     NOTIFICATION_ID,
@@ -75,13 +92,14 @@ public class ProtectionService extends Service {
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
-        ProtectionStateStore.markProtectionRunning(this, true, "protection_created");
         handler.post(healthTask);
+
         // 前台服务必须尽快显示通知，否则 Android 会主动停止服务
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        DeviceSyncService.start(this);
         ProtectionStateStore.markProtectionRunning(this, true, "protection_started");
         handler.removeCallbacks(healthTask);
         handler.post(healthTask);
@@ -93,7 +111,7 @@ public class ProtectionService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         ProtectionStateStore.markProtectionRunning(this, true, "task_removed");
-        if (FocusAccessibilityService.isEnabled(this)) {
+        if (FocusAccessibilityService.isEnabled(this) || WallpaperGuard.available(this)) {
             scheduleRestart();
         }
         // 用户划掉最近任务时，安排一次显式恢复，避免保护随界面任务一起消失
@@ -102,7 +120,9 @@ public class ProtectionService extends Service {
 
     @Override
     public void onDestroy() {
+        WallpaperQuotaMonitor.release(this);
         handler.removeCallbacks(healthTask);
+        ProtectionRecoveryObserver.release(this);
         ProtectionStateStore.markProtectionRunning(this, false, "protection_destroyed");
         super.onDestroy();
         // 不在 onDestroy 中反复拉起服务，避免形成“拉起-杀死-再拉起”的循环。
@@ -115,7 +135,7 @@ public class ProtectionService extends Service {
                 "应用限制保护",
                 NotificationManager.IMPORTANCE_LOW
         );
-        channel.setDescription("保持 FocusGuard 的应用限制功能在后台运行");
+        channel.setDescription("保持 " + getString(R.string.app_name) + " 的应用限制功能在后台运行");
         channel.setShowBadge(false);
 
         NotificationManager manager = getSystemService(NotificationManager.class);
@@ -124,8 +144,8 @@ public class ProtectionService extends Service {
         }
     }
 
-    private Notification buildNotification() {
-        Intent openAppIntent = new Intent(this, MainActivity.class);
+    private Notification buildNotification(boolean healthy) {
+        Intent openAppIntent = new Intent(this, healthy ? MainActivity.class : PermissionGuideActivity.class);
         openAppIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         PendingIntent openAppPendingIntent = PendingIntent.getActivity(
@@ -137,8 +157,8 @@ public class ProtectionService extends Service {
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle("FocusGuard 正在保护")
-                .setContentText("受限应用的使用时间会在后台继续检查")
+                .setContentTitle(getString(R.string.app_name) + (healthy ? " 正在保护" : ProtectionWarning.dailyBackupRunning(this) ? " 应用额度备用保护中" : " 保护已断开"))
+                .setContentText(healthy ? "受限应用的使用时间会在后台继续检查" : ProtectionWarning.dailyBackupRunning(this) ? "壁纸守护保护应用额度；专注与睡眠需恢复无障碍" : "点击重新连接无障碍服务")
                 .setContentIntent(openAppPendingIntent)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setPriority(NotificationCompat.PRIORITY_LOW)

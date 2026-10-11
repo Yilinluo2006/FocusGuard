@@ -16,7 +16,7 @@ public final class LimitSnapshot {
         return new AtomicFile(new File(context.getFilesDir(), "limit-snapshot.properties"));
     }
 
-    public static synchronized void publish(Context context) {
+    public static synchronized boolean publish(Context context) {
         SharedPreferences prefs = context.getSharedPreferences("focus_guard_prefs", 0);
         Properties values = new Properties();
         for (String pkg : prefs.getStringSet("selected_packages", Collections.emptySet())) {
@@ -28,15 +28,23 @@ public final class LimitSnapshot {
             out = target.startWrite();
             values.store(out, null);
             target.finishWrite(out);
+            return true;
         } catch (Exception error) {
             if (out != null) target.failWrite(out);
             Log.e("FocusAccessibility", "Cannot publish limits", error);
+            return false;
         }
     }
 
     public static Properties read(Context context) throws java.io.IOException {
         Properties values = new Properties();
         try (FileInputStream in = file(context).openRead()) { values.load(in); }
+        Properties locked = RestrictionStore.lockedLimits(context);
+        for (String pkg : locked.stringPropertyNames()) {
+            int ceiling = Integer.parseInt(locked.getProperty(pkg));
+            int configured = Integer.parseInt(values.getProperty(pkg, "0"));
+            values.setProperty(pkg, Integer.toString(configured > 0 ? Math.min(configured, ceiling) : ceiling));
+        }
         return values;
     }
 }

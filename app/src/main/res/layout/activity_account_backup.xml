@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/accountBackupPage" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/page_background">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
+  <Button android:id="@+id/backupBack" style="@style/AccountRow" android:layout_width="56dp" android:layout_height="48dp" android:text="‹" android:textSize="32sp" android:gravity="center" android:padding="0dp" android:contentDescription="返回设置"/>
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="账号与备份" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true"/>
+ </LinearLayout>
+ <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:scrollbars="none">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/page_card_background">
+   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="8dp">
+    <ImageView android:id="@+id/backupAvatar" android:layout_width="52dp" android:layout_height="52dp" android:contentDescription="编辑个人资料"/>
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:orientation="vertical">
+     <TextView android:id="@+id/backupAccount" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary"/>
+     <TextView android:id="@+id/backupIdentity" style="@style/AccountCaption" android:layout_marginTop="4dp"/>
+    </LinearLayout>
+   </LinearLayout>
+   <Button android:id="@+id/backupProfile" style="@style/AccountRow" android:text="个人资料与登录方式   ›"/>
+  </LinearLayout>
+  <TextView style="@style/AccountCaption" android:text="云端备份" android:layout_marginTop="24dp" android:layout_marginBottom="10dp" android:accessibilityHeading="true"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/page_card_background">
+   <androidx.appcompat.widget.SwitchCompat android:id="@+id/backupToggle" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="自动备份" android:textSize="17sp" android:textStyle="bold" android:textColor="@color/text_primary"/>
+   <TextView style="@style/AccountCaption" android:text="保存设置与历史记录，换机后可恢复。" android:layout_marginTop="4dp"/>
+   <TextView android:id="@+id/backupStatus" style="@style/AccountCaption" android:layout_marginTop="16dp"/>
+   <TextView android:id="@+id/backupTime" style="@style/AccountCaption" android:layout_marginTop="4dp"/>
+   <Button android:id="@+id/backupNow" style="@style/AccountRow" android:layout_marginTop="12dp" android:gravity="center" android:background="@drawable/button_rounded" android:backgroundTint="@color/primary_button" android:textColor="@color/on_primary" android:text="立即备份"/>
+   <ProgressBar android:id="@+id/backupProgress" android:layout_width="24dp" android:layout_height="24dp" android:layout_marginTop="12dp" android:layout_gravity="center_horizontal" android:visibility="gone"/>
+  </LinearLayout>
+  <TextView style="@style/AccountCaption" android:text="数据管理" android:layout_marginTop="24dp" android:layout_marginBottom="10dp" android:accessibilityHeading="true"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="8dp" android:background="@drawable/page_card_background">
+   <Button android:id="@+id/backupRestore" style="@style/AccountRow" android:text="从云端恢复备份   ›"/>
+   <Button android:id="@+id/backupSync" android:layout_marginTop="12dp" style="@style/AccountRow" android:text="手机与平板同步   ›"/>
+   <Button android:id="@+id/backupHelp" android:layout_marginTop="12dp" style="@style/AccountRow" android:text="备份与同步说明   ›"/>
+  </LinearLayout>
+  <Button android:id="@+id/backupLogin" style="@style/AccountRow" android:layout_marginTop="24dp" android:gravity="center" android:text="登录 / 注册" android:textColor="@color/text_secondary"/>
+  <TextView android:id="@+id/backupLogoutHint" style="@style/AccountCaption" android:text="退出登录不会删除本机的设置与记录" android:gravity="center" android:layout_marginBottom="12dp"/>
+ </LinearLayout>
+ </ScrollView>
+</LinearLayout>

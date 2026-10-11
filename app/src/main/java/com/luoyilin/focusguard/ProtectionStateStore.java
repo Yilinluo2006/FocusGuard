@@ -23,7 +23,7 @@ final class ProtectionStateStore {
 
     private static final String TAG = "ProtectionState";
     private static final String FILE_NAME = "protection_state.bin";
-    private static final int FILE_VERSION = 1;
+    private static final int FILE_VERSION = 2;
     private static final long HEALTH_TIMEOUT_MILLIS = 35_000L;
 
     private ProtectionStateStore() {
@@ -55,6 +55,11 @@ final class ProtectionStateStore {
 
     static synchronized void markProtectionRunning(Context context, boolean running, String event) {
         State state = read(context);
+        // A new guard process does not inherit the old process's accessibility binding.
+        if (running && state.pid != Process.myPid()) {
+            state.accessibilityConnected = false;
+            state.accessibilityHeartbeatAt = 0;
+        }
         state.protectionRunning = running;
         state.protectionHeartbeatAt = SystemClock.uptimeMillis();
         updateDiagnostics(context, state, event);
@@ -71,12 +76,14 @@ final class ProtectionStateStore {
 
     static boolean isAccessibilityHealthy(Context context) {
         State state = read(context);
-        return state.accessibilityConnected && isFresh(state.accessibilityHeartbeatAt);
+        return state.boot == ProtectionClock.boot(context) && state.boot >= 0
+                && state.accessibilityConnected && isFresh(state.accessibilityHeartbeatAt);
     }
 
     static boolean isProtectionHealthy(Context context) {
         State state = read(context);
-        return state.protectionRunning && isFresh(state.protectionHeartbeatAt);
+        return state.boot == ProtectionClock.boot(context) && state.boot >= 0
+                && state.protectionRunning && isFresh(state.protectionHeartbeatAt);
     }
 
     private static boolean isFresh(long timestamp) {
@@ -86,6 +93,7 @@ final class ProtectionStateStore {
 
     private static void updateDiagnostics(Context context, State state, String event) {
         state.pid = Process.myPid();
+        state.boot = ProtectionClock.boot(context);
         state.processName = getProcessName(context);
         if (event != null) {
             state.lastEvent = event;
@@ -142,6 +150,8 @@ final class ProtectionStateStore {
             state.pid = data.readInt();
             state.processName = data.readUTF();
             state.lastEvent = data.readUTF();
+            state.boot = data.readInt();
+            if (state.boot != ProtectionClock.boot(context)) return new State();
             return state;
         } catch (IOException exception) {
             Log.w(TAG, "Unable to read protection state", exception);
@@ -164,6 +174,7 @@ final class ProtectionStateStore {
             data.writeInt(state.pid);
             data.writeUTF(state.processName == null ? "" : state.processName);
             data.writeUTF(state.lastEvent == null ? "" : state.lastEvent);
+            data.writeInt(state.boot);
             data.flush();
             atomicFile.finishWrite(output);
         } catch (IOException exception) {
@@ -180,6 +191,7 @@ final class ProtectionStateStore {
         boolean protectionRunning;
         long protectionHeartbeatAt;
         int pid;
+        int boot = -1;
         String processName = "";
         String lastEvent = "";
     }

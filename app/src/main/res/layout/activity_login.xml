@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F8FA"
+    android:background="@color/page_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -13,20 +13,14 @@
         android:paddingStart="28dp"
         android:paddingEnd="28dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="登录 FocusGuard"
-            android:textColor="#111827"
-            android:textSize="30sp"
-            android:textStyle="bold" />
+        
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="登录后同步你的应用限制"
-            android:textColor="#6B7280"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
         <EditText
@@ -57,14 +51,13 @@
             android:textColorHint="@color/input_hint"
             android:singleLine="true" />
 
-        <Button
+        <com.luoyilin.focusguard.RaisedButton
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
-            android:backgroundTint="#2563EB"
             android:text="登录"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/on_primary"
             android:textSize="16sp" />
 
         <!-- 点击后进入忘记密码页面 -->
@@ -76,7 +69,7 @@
             android:backgroundTint="@android:color/transparent"
             android:text="忘记密码？"
             android:textAllCaps="false"
-            android:textColor="#2563EB"
+            android:textColor="@color/accent_text"
             android:textSize="15sp" />
 
         <!-- 点击后进入注册页面 -->
@@ -88,9 +81,11 @@
             android:backgroundTint="@android:color/transparent"
             android:text="没有账号？立即注册"
             android:textAllCaps="false"
-            android:textColor="#2563EB"
+            android:textColor="@color/accent_text"
             android:textSize="15sp" />
 
+        <Button android:id="@+id/btnPhoneLogin" android:layout_width="match_parent" android:layout_height="48dp" android:text="手机号登录 / 注册" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
+        <Button android:id="@+id/btnWechatLogin" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="微信登录" android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
         <ProgressBar
             android:id="@+id/progressLogin"
             android:layout_width="32dp"
@@ -98,6 +93,12 @@
             android:layout_marginTop="20dp"
             android:visibility="gone" />
 
-    </LinearLayout>
+
+        <Button android:id="@+id/btnAppearance"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:text="外观模式"
+            android:backgroundTint="@color/secondary_surface"
+            android:textColor="@color/text_primary" />
+</LinearLayout>
 
 </ScrollView>

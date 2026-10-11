@@ -23,9 +23,6 @@ import retrofit2.Response;
 
 public class RegisterActivity extends AppCompatActivity {
 
-    private EditText etRegisterUsername;
-    // 用户名输入框
-
     private EditText etRegisterEmail;
     // 邮箱输入框
 
@@ -48,9 +45,9 @@ public class RegisterActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+        SecondaryPage.show(this, ((android.view.ViewGroup)findViewById(android.R.id.content)).getChildAt(0), "注册", () -> getOnBackPressedDispatcher().onBackPressed());
         // 加载注册页面 XML 布局
 
-        etRegisterUsername = findViewById(R.id.etRegisterUsername);
         etRegisterEmail = findViewById(R.id.etRegisterEmail);
         etRegisterPassword = findViewById(R.id.etRegisterPassword);
         etRegisterConfirmPassword =
@@ -68,12 +65,6 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void register() {
-        String username = etRegisterUsername
-                .getText()
-                .toString()
-                .trim();
-        // 读取用户名，并删除首尾空格
-
         String email = etRegisterEmail
                 .getText()
                 .toString()
@@ -89,13 +80,6 @@ public class RegisterActivity extends AppCompatActivity {
                 .getText()
                 .toString();
         // 读取确认密码，只在 Android 本地进行比较
-
-        if (username.length() < 3 || username.length() > 50) {
-            etRegisterUsername.setError("用户名长度必须为 3 到 50 个字符");
-            etRegisterUsername.requestFocus();
-            return;
-        }
-        // 检查用户名是否符合后端长度要求
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             etRegisterEmail.setError("请输入正确的邮箱地址");
@@ -122,7 +106,7 @@ public class RegisterActivity extends AppCompatActivity {
         // 禁用按钮并显示加载图标
 
         RegisterRequest request =
-                new RegisterRequest(username, email, password);
+                new RegisterRequest(email, password);
         // 把用户名、邮箱和密码封装成注册请求对象
 
         RetrofitClient.getApi()

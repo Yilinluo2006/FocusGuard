@@ -1,144 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F6F8FA"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="保护状态中心"
-            android:textColor="#111827"
-            android:textSize="28sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="保持关键权限与后台保护正常，限制功能才能稳定运行。"
-            android:textColor="#6B7280"
-            android:textSize="15sp" />
-
-        <TextView
-            android:id="@+id/tvPermissionStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:text="正在检查使用情况访问..."
-            android:textColor="#111827"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="用于读取各应用的每日使用时长，并判断是否达到限制。"
-            android:textColor="#6B7280"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnOpenUsageSettings"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="#2563EB"
-            android:text="去开启"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/tvAccessibilityStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:text="正在检查强制限制服务..."
-            android:textColor="#111827"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="用于识别当前应用，并在达到限额后执行强制退出。"
-            android:textColor="#6B7280"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnOpenAccessibilitySettings"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="#2563EB"
-            android:text="去开启"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/tvProtectionStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:text="正在检查后台保护服务..."
-            android:textColor="#111827"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="用于在主界面退出后继续维持限制配置与服务状态。"
-            android:textColor="#6B7280"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnStartProtectionService"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="#2563EB"
-            android:text="启动服务"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/tvBatteryStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:text="正在检查电池优化设置..."
-            android:textColor="#111827"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="放行电池优化可降低系统休眠或清理后台服务的概率。"
-            android:textColor="#6B7280"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnOpenBatterySettings"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="24dp"
-            android:backgroundTint="#2563EB"
-            android:text="去设置"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
-
-    </LinearLayout>
-</ScrollView>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/permissionGuidePage" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical"
+    android:background="@color/page_background">
+    <ScrollView android:id="@+id/setupGuideScroll" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="20dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                <TextView android:id="@+id/setupGuideTitle" android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content" android:text="必要设置" android:textSize="28sp"
+                    android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                <Button android:id="@+id/btnSkipSetup" android:layout_width="wrap_content" android:layout_height="48dp"
+                    android:minWidth="64dp" android:text="返回" android:textSize="14sp"
+                    android:textColor="@color/text_secondary" android:background="?attr/selectableItemBackgroundBorderless" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                android:text="完成下面 4 项，应用限制才会生效。" android:textColor="@color/text_secondary" android:textSize="14sp" />
+            <TextView android:id="@+id/setupProgressText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" android:text="已完成 0 / 4" android:textSize="14sp" android:textColor="@color/accent_text" />
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/setupProgress" android:layout_width="match_parent" android:layout_height="8dp"
+                android:layout_marginTop="8dp" android:max="4" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="1  使用记录" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvPermissionStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupUsageDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="统计每个应用的使用时间，计算剩余额度。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnOpenUsageSettings" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="开启使用记录" android:textSize="15sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="2  无障碍服务" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvAccessibilityStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupAccessibilityDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="识别正在使用的应用，在超时或专注时执行限制。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnOpenAccessibilitySettings" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="开启无障碍" android:textSize="15sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="3  浮窗显示" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvOverlayStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupOverlayDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="在其他应用上显示剩余时间和限制提示。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnOpenOverlaySettings" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="开启浮窗" android:textSize="15sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="4  后台保护" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvProtectionStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupProtectionDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="让应用限制在离开奶蛙ToDo 后继续运行。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnStartProtectionService" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="启动后台保护" android:textSize="15sp" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"
+                android:text="建议开启" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="后台运行" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvBatteryStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupBatteryDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="建议解除电池限制。手机若有“自启动”或“允许后台运行”，也请开启。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnOpenBatterySettings" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="设置后台运行" android:textSize="15sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp" android:layout_marginTop="16dp"
+                android:background="@drawable/page_card_background">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="通知提醒" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:accessibilityHeading="true" />
+                    <TextView android:id="@+id/tvNotificationStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:text="待开启" android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+                <TextView android:id="@+id/setupNotificationDescription" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:text="接收保护中断提醒，及时发现限制失效。" android:textSize="14sp" android:textColor="@color/text_secondary" />
+                <Button android:id="@+id/btnOpenNotificationSettings" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:minHeight="48dp" android:layout_marginTop="12dp" android:text="开启通知" android:textSize="15sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+    <com.luoyilin.focusguard.RaisedButton android:id="@+id/btnSetupNext" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:minHeight="56dp" android:layout_margin="20dp"
+        android:text="开启使用记录" android:textSize="16sp" />
+</LinearLayout>

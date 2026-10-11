@@ -7,6 +7,7 @@ import com.luoyilin.focusguard.network.LoginResponse;
 
 public class SessionManager {
 
+    private static final Object SESSION_LOCK = new Object();
     private static final String PREFERENCES_NAME = "focusguard_session";
     // SharedPreferences 文件名称
 
@@ -41,12 +42,17 @@ public class SessionManager {
     // 获取 FocusGuard 专用的本地登录信息存储空间
 
     public void saveLoginSession(LoginResponse response) {
+        synchronized (SESSION_LOCK) {
         SharedPreferences.Editor editor = preferences.edit();
 
+        editor.putBoolean("session_expired", false);
         editor.putString(KEY_TOKEN, response.getToken());
         editor.putString(KEY_TOKEN_TYPE, response.getTokenType());
-        editor.putString(KEY_USERNAME, response.getUsername());
+        editor.putString(KEY_USERNAME, response.getDisplayName());
+        editor.putString("avatar_key", response.getAvatarKey() == null ? "default" : response.getAvatarKey());
         editor.putString(KEY_EMAIL, response.getEmail());
+        editor.putString("phone",response.getPhone()); editor.putBoolean("has_password",response.hasPassword());
+        editor.putBoolean("wechat_linked", response.isWechatVerified());
         editor.putBoolean(
                 KEY_EMAIL_VERIFIED,
                 response.isEmailVerified()
@@ -54,9 +60,12 @@ public class SessionManager {
 
         if (response.getUserId() != null) {
             editor.putLong(KEY_USER_ID, response.getUserId());
+        } else {
+            editor.remove(KEY_USER_ID);
         }
 
         editor.apply();
+        }
     }
     // 登录成功后，把后端返回的用户信息和 JWT 保存到手机本地
 
@@ -104,10 +113,33 @@ public class SessionManager {
     public String getEmail() {
         return preferences.getString(KEY_EMAIL, null);
     }
+    public String getAvatarKey() { return preferences.getString("avatar_key", "default"); }
+    public String getPhone() { return preferences.getString("phone",null); }
+    public boolean hasPassword() { return preferences.getBoolean("has_password",getEmail()!=null); }
+    public boolean isWechatLinked() { return preferences.getBoolean("wechat_linked", false); }
+    public String getLoginIdentifier() { return getEmail()!=null?getEmail():getPhone()!=null?com.luoyilin.focusguard.PhoneNumberRules.mask(getPhone()):isWechatLinked()?"微信账号":"账号 ID · "+getUserId(); }
+    public boolean updateProfile(com.luoyilin.focusguard.network.ProfileResponse profile, String expectedAuthorization) {
+        synchronized (SESSION_LOCK) {
+        if (profile == null || profile.userId == null || getUserId() != profile.userId
+                || !java.util.Objects.equals(expectedAuthorization, getAuthorizationHeader())) return false;
+        return preferences.edit().putString(KEY_USERNAME, profile.displayName).putString("avatar_key", profile.avatarKey)
+                .putString(KEY_EMAIL, profile.email).putBoolean(KEY_EMAIL_VERIFIED, profile.emailVerified)
+                .putBoolean("wechat_linked", profile.linkedMethods != null && profile.linkedMethods.contains("WECHAT"))
+                .putString("phone",profile.phone).putBoolean("has_password",profile.hasPassword==null?profile.email!=null:profile.hasPassword).commit();
+        }
+    }
     // 读取用户邮箱
 
+    public boolean isSessionExpired() { return preferences.getBoolean("session_expired", false); }
+    public boolean expireIfMatches(String rejectedAuthorization) {
+        synchronized (SESSION_LOCK) {
+            if (rejectedAuthorization == null || !rejectedAuthorization.equals(getAuthorizationHeader())) return false;
+            preferences.edit().remove(KEY_TOKEN).remove(KEY_TOKEN_TYPE).putBoolean("session_expired", true).commit();
+            return true;
+        }
+    }
     public void clearSession() {
-        preferences.edit().clear().apply();
+        synchronized (SESSION_LOCK) { preferences.edit().clear().apply(); }
     }
     // 退出登录时，清除手机中保存的全部登录信息
 }

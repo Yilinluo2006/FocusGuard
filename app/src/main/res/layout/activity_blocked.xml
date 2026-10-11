@@ -4,7 +4,7 @@
     android:id="@+id/blockedPage"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F6F8FA"
+    android:background="@color/page_background"
     android:gravity="center"
     android:orientation="vertical"
     android:padding="28dp">
@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="已限制使用"
-        android:textColor="#111827"
+        android:textColor="@color/text_primary"
         android:textSize="30sp"
         android:textStyle="bold" />
 
@@ -25,7 +25,7 @@
         android:gravity="center"
         android:lineSpacingExtra="6dp"
         android:text="该应用今日使用时间已达到限制"
-        android:textColor="#4B5563"
+        android:textColor="@color/text_secondary"
         android:textSize="17sp" />
 
     <TextView
@@ -34,8 +34,16 @@
         android:layout_marginTop="18dp"
         android:gravity="center"
         android:lineSpacingExtra="6dp"
-        android:text="FocusGuard 会在明天重新开放今日额度。"
-        android:textColor="#6B7280"
+        android:text="本机每日额度与应用临时次数在 04:00 恢复。睡眠全局临时次数按每次睡前计划单独计算。"
+        android:textColor="@color/text_secondary"
         android:textSize="15sp" />
 
+    <Button android:id="@+id/btnEmergency"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:text="应用临时使用"
+        android:backgroundTint="@color/primary_button" android:textColor="@color/on_primary" />
+    <Button android:id="@+id/btnKeepRestricted"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="继续保持限制"
+        android:backgroundTint="@color/secondary_surface" android:textColor="@color/text_primary" />
 </LinearLayout>

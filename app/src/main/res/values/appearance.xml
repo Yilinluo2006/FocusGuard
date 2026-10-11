@@ -1,0 +1,17 @@
+<resources>
+    <color name="page_background">#F6F8FA</color>
+    <color name="surface_background">#FFFFFF</color>
+    <color name="secondary_surface">#ECEAE5</color>
+    <color name="text_primary">#18232B</color>
+    <color name="text_secondary">#4B5563</color>
+    <color name="accent_text">#765919</color>
+    <color name="primary_button">#D9BC79</color>
+    <color name="raised_button_shadow">#8C6B32</color>
+    <color name="raised_button_pressed">#C7A765</color>
+    <color name="on_primary">#191711</color>
+    <color name="success_text">#765919</color>
+    <color name="danger_text">#B42318</color>
+    <color name="warning_text">#B45309</color>
+    <color name="outline">#8F805F</color>
+    <color name="divider">#DCD6CA</color>
+</resources>

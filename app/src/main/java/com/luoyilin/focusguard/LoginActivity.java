@@ -49,9 +49,21 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        SecondaryPage.show(this, ((android.view.ViewGroup)findViewById(android.R.id.content)).getChildAt(0), "登录", () -> getOnBackPressedDispatcher().onBackPressed());
+        findViewById(R.id.btnAppearance).setOnClickListener(v -> Appearance.choose(this));
         // 加载登录页面的 XML 布局
 
         sessionManager = new SessionManager(this);
+        findViewById(R.id.btnWechatLogin).setOnClickListener(v ->
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this,R.style.HomeDialog).setTitle("使用微信登录")
+                        .setMessage("继续后会前往微信授权，使用微信提供的账号标识和昵称完成登录。\n\n已有奶蛙账号？建议先用邮箱或手机号登录，再到个人资料绑定微信，继续使用原账号的数据。")
+                        .setNegativeButton("返回",null).setPositiveButton("继续微信授权",(d,w)->startActivityForResult(
+                                new Intent(this,WechatAuthActivity.class).putExtra("returnToBackup",getIntent().getBooleanExtra("returnToBackup",false)),100)).show());
+        findViewById(R.id.btnPhoneLogin).setOnClickListener(v -> {
+            Intent phone=new Intent(this,PhoneAuthActivity.class);
+            phone.putExtra("returnToBackup",getIntent().getBooleanExtra("returnToBackup",false));
+            startActivityForResult(phone,100);
+        });
         // 创建登录状态管理对象
 
         etEmail = findViewById(R.id.etEmail);
@@ -156,7 +168,7 @@ public class LoginActivity extends AppCompatActivity {
                                     LoginActivity.this,
                                     MainActivity.class
                             );
-                            startActivity(intent);
+                            if (!getIntent().getBooleanExtra("returnToBackup", false)) startActivity(intent);
                             finish();
                             // 打开首页并关闭登录页面
 
@@ -224,6 +236,10 @@ public class LoginActivity extends AppCompatActivity {
         // enqueue 表示异步发送请求，不会阻塞页面
     }
 
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data); if(request==100 && result==RESULT_OK) finish();
+    }
+
     private void setLoading(boolean loading) {
         progressLogin.setVisibility(
                 loading ? View.VISIBLE : View.GONE
@@ -231,6 +247,8 @@ public class LoginActivity extends AppCompatActivity {
         // loading 为 true 时显示加载图标，否则隐藏
 
         btnLogin.setEnabled(!loading);
+        findViewById(R.id.btnWechatLogin).setEnabled(!loading);
+        findViewById(R.id.btnPhoneLogin).setEnabled(!loading);
         // 请求期间禁用按钮，避免用户连续点击
 
         btnGoRegister.setEnabled(!loading);

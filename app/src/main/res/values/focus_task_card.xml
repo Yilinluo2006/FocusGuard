@@ -1,0 +1,12 @@
+<resources>
+    <color name="focus_card_surface">#FAFAFC</color>
+    <color name="focus_card_text">#20212A</color>
+    <color name="focus_card_secondary">#565965</color>
+    <color name="focus_card_action">#ECECF1</color>
+    <color name="focus_card_border">#DDDDE5</color>
+    <color name="focus_card_ripple">#16000000</color>
+    <color name="focus_card_blue">#1684E5</color>
+    <color name="focus_card_green">#008D7B</color>
+    <color name="focus_card_coral">#C45140</color>
+    <integer name="focus_card_glow_alpha">42</integer>
+</resources>
